@@ -7,7 +7,95 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
 
 <!-- ── Supabase SDK (CDN — safe for GitHub Pages) ── -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+/* ─────────────────────────────────────────────────────────────
+   ADMIN USER MANAGEMENT
+   ───────────────────────────────────────────────────────────── */
+function switchAdminTab(tab, btn) {
+  document.getElementById('admin-tab-submissions').style.display = tab==='submissions' ? 'block' : 'none';
+  document.getElementById('admin-tab-users').style.display = tab==='users' ? 'block' : 'none';
+  document.querySelectorAll('.admin-tab').forEach(b => {
+    b.style.color = 'var(--gray)';
+    b.style.borderBottomColor = 'transparent';
+  });
+  btn.style.color = 'var(--navy)';
+  btn.style.borderBottomColor = 'var(--gold)';
+  if (tab === 'users') loadUsersList();
+}
+
+async function adminCreateUser() {
+  const name  = document.getElementById('new-user-name').value.trim();
+  const email = document.getElementById('new-user-email').value.trim();
+  const pwd   = document.getElementById('new-user-pwd').value;
+  const pwd2  = document.getElementById('new-user-pwd2').value;
+  const errEl = document.getElementById('create-user-error');
+  const okEl  = document.getElementById('create-user-success');
+  errEl.classList.remove('show'); okEl.classList.remove('show');
+  if (!email) { errEl.textContent='⚠ Email is required.'; errEl.classList.add('show'); return; }
+  if (pwd.length < 8) { errEl.textContent='⚠ Password must be at least 8 characters.'; errEl.classList.add('show'); return; }
+  if (pwd !== pwd2) { errEl.textContent='⚠ Passwords do not match.'; errEl.classList.add('show'); return; }
+  if (!sbReady) { errEl.textContent='⚠ Supabase not configured.'; errEl.classList.add('show'); return; }
+  // Use signUp — works from browser without service_role key
+  const { data, error } = await sb.auth.signUp({
+    email, password: pwd,
+    options: { data: { full_name: name }, emailRedirectTo: window.location.href }
+  });
+  if (error) { errEl.textContent='⚠ '+error.message; errEl.classList.add('show'); return; }
+  okEl.textContent = '✅ Account created for '+email+'. Share the password with them securely. They can reset it anytime via "Forgot Password".';
+  okEl.classList.add('show');
+  document.getElementById('new-user-name').value = '';
+  document.getElementById('new-user-email').value = '';
+  document.getElementById('new-user-pwd').value = '';
+  document.getElementById('new-user-pwd2').value = '';
+  loadUsersList();
+  showToast('User created: '+email, 'ok');
+}
+
+async function adminSendInvite() {
+  const email = document.getElementById('invite-email').value.trim();
+  const name  = document.getElementById('invite-name').value.trim();
+  const errEl = document.getElementById('invite-error');
+  const okEl  = document.getElementById('invite-success');
+  errEl.classList.remove('show'); okEl.classList.remove('show');
+  if (!email) { errEl.textContent='⚠ Email is required.'; errEl.classList.add('show'); return; }
+  // Build the Supabase dashboard invite URL for the admin to use
+  const projectRef = SUPABASE_URL.replace('https://','').split('.')[0];
+  const dashUrl = `https://supabase.com/dashboard/project/${projectRef}/auth/users`;
+  okEl.innerHTML = `✅ To invite <strong>${email}</strong>:<br>
+    1. Go to <a href="${dashUrl}" target="_blank" style="color:var(--navy);font-weight:700;">Supabase → Authentication → Users</a><br>
+    2. Click <strong>"Invite user"</strong><br>
+    3. Enter <strong>${email}</strong> and click Send Invite<br>
+    4. They will receive an email to set their own password.`;
+  okEl.classList.add('show');
+}
+
+async function loadUsersList() {
+  const tbody = document.getElementById('users-tbody');
+  if (!sbReady || !isAdmin) return;
+  // Fetch from applications table to show registered users
+  const { data, error } = await sb.from('applications')
+    .select('user_email, created_at, updated_at')
+    .order('created_at', { ascending: false });
+  if (error || !data) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--error);padding:16px;">Could not load users.</td></tr>';
+    return;
+  }
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--gray);padding:20px;">No registered users with applications yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map((row, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${row.user_email}</strong>${ADMIN_EMAILS.includes(row.user_email) ? ' <span class="admin-badge">Admin</span>' : ''}</td>
+      <td>${row.created_at ? new Date(row.created_at).toLocaleDateString('en-GB') : '—'}</td>
+      <td>${row.updated_at ? new Date(row.updated_at).toLocaleDateString('en-GB') : '—'}</td>
+      <td>${ADMIN_EMAILS.includes(row.user_email) ? '<span class="status-badge status-approved">Admin</span>' : '<span class="status-badge status-submitted">User</span>'}</td>
+    </tr>
+  `).join('');
+}
+
+</script>
 <!-- ── Export libraries ── -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.2.2/docx.umd.min.js"></script>
@@ -495,6 +583,36 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
 <body>
 
 <!-- ══════════════════════════════════════════════════
+     CONFIG SCREEN (shown only when keys not set)
+══════════════════════════════════════════════════ -->
+<div id="config-screen" style="display:none;min-height:100vh;align-items:center;justify-content:center;background:linear-gradient(135deg,#001f42,#003366 55%,#1a5276);padding:20px;">
+  <div style="background:white;border-radius:20px;padding:44px;width:100%;max-width:480px;box-shadow:0 24px 80px rgba(0,0,0,.35);">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px;">
+      <div style="width:48px;height:48px;background:linear-gradient(135deg,#003366,#004a8f);border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:16px;font-weight:900;color:#CFB53B;">UCC</div>
+      <div><div style="font-family:'Playfair Display',serif;font-size:15px;color:#003366;font-weight:700;">GTEC Accreditation Portal</div><div style="font-size:11px;color:#8896a8;">One-time Supabase configuration</div></div>
+    </div>
+    <div style="background:#fff3cd;border:1px solid #CFB53B;border-radius:8px;padding:12px 14px;font-size:12px;color:#7d6608;margin-bottom:20px;">
+      ⚙️ <strong>Admin setup.</strong> This screen is accessible only via the secret setup URL. Enter your Supabase credentials — saved to this browser only. Regular users never see this screen.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div id="cfg-error" style="background:#fde8e8;border:1px solid #f5c6c6;color:#c0392b;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;display:none;"></div>
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#003366;display:block;margin-bottom:5px;">Supabase Project URL</label>
+        <input type="text" id="cfg-url" placeholder="https://xxxxxxxxxxxx.supabase.co" style="width:100%;padding:10px 13px;border:1.5px solid #dce3ef;border-radius:8px;font-family:inherit;font-size:13px;" oninput="this.style.borderColor='#dce3ef'">
+        <div style="font-size:11px;color:#8896a8;margin-top:3px;">Supabase dashboard → Settings → API → Project URL</div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#003366;display:block;margin-bottom:5px;">Supabase Anon / Public Key</label>
+        <input type="text" id="cfg-anon" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style="width:100%;padding:10px 13px;border:1.5px solid #dce3ef;border-radius:8px;font-family:inherit;font-size:13px;" oninput="this.style.borderColor='#dce3ef'">
+        <div style="font-size:11px;color:#8896a8;margin-top:3px;">Supabase dashboard → Settings → API → anon public key</div>
+      </div>
+      <button onclick="saveConfig()" style="background:linear-gradient(135deg,#003366,#004a8f);color:white;border:none;padding:12px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px;">Save &amp; Connect →</button>
+    </div>
+    <div style="text-align:center;margin-top:16px;font-size:11px;color:#8896a8;">🔒 Credentials stored locally in your browser only</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
      AUTH SCREEN
 ══════════════════════════════════════════════════ -->
 <div id="auth-screen">
@@ -509,8 +627,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
 
     <div class="auth-tabs">
       <button class="auth-tab active" onclick="switchTab('login')">Sign In</button>
-      <button class="auth-tab" onclick="switchTab('signup')">Create Account</button>
-      <button class="auth-tab" onclick="switchTab('reset')">Reset Password</button>
+      <button class="auth-tab" onclick="switchTab('reset')">Forgot Password</button>
     </div>
 
     <!-- Login -->
@@ -521,44 +638,28 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
         <div id="login-error" class="auth-error"></div>
         <div><label>Email Address</label><input type="email" id="login-email" placeholder="you@institution.edu.gh" autocomplete="email"></div>
         <div><label>Password</label><input type="password" id="login-pwd" placeholder="••••••••" autocomplete="current-password"></div>
-        <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="doLogin()" id="login-btn">
-          Sign In
-        </button>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="doLogin()" id="login-btn">Sign In</button>
+        <div style="text-align:center;margin-top:10px;">
+          <span style="font-size:12px;color:var(--gray);">Don't have an account? Contact your administrator.</span>
+        </div>
       </div>
     </div>
 
-    <!-- Signup -->
-    <div id="tab-signup" style="display:none;">
-      <h3 class="auth-title">Create account</h3>
-      <p class="auth-sub">Register to start a new accreditation application.</p>
-      <div class="auth-form">
-        <div id="signup-error" class="auth-error"></div>
-        <div id="signup-success" class="auth-success"></div>
-        <div><label>Full Name</label><input type="text" id="signup-name" placeholder="Dr. Jane Mensah"></div>
-        <div><label>Email Address</label><input type="email" id="signup-email" placeholder="you@institution.edu.gh"></div>
-        <div><label>Password <span style="color:var(--gray);font-weight:400;text-transform:none;">(min. 8 characters)</span></label><input type="password" id="signup-pwd" placeholder="••••••••"></div>
-        <div><label>Confirm Password</label><input type="password" id="signup-pwd2" placeholder="••••••••"></div>
-        <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="doSignup()" id="signup-btn">
-          Create Account
-        </button>
-      </div>
-    </div>
-
-    <!-- Reset -->
+    <!-- Reset Password -->
     <div id="tab-reset" style="display:none;">
       <h3 class="auth-title">Reset password</h3>
-      <p class="auth-sub">We'll send a reset link to your email.</p>
+      <p class="auth-sub">Enter your email and we'll send a password reset link.</p>
       <div class="auth-form">
         <div id="reset-error" class="auth-error"></div>
         <div id="reset-success" class="auth-success"></div>
-        <div><label>Email Address</label><input type="email" id="reset-email" placeholder="you@institution.edu.gh"></div>
-        <button class="btn btn-outline" style="width:100%;justify-content:center;" onclick="doReset()" id="reset-btn">
-          Send Reset Link
-        </button>
+        <div><label>Email Address</label><input type="email" id="reset-email" placeholder="you@ucc.edu.gh"></div>
+        <button class="btn btn-outline" style="width:100%;justify-content:center;" onclick="doReset()" id="reset-btn">Send Reset Link</button>
+        <button class="btn btn-outline btn-sm" style="width:100%;justify-content:center;margin-top:6px;" onclick="switchTab('login')">← Back to Sign In</button>
       </div>
     </div>
 
     <div class="gtec-badge">🔒 Secured by Supabase · Data encrypted at rest · Ghana Data Protection Act compliant</div>
+
   </div>
 </div>
 
@@ -655,7 +756,16 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
       <div class="sidebar-actions">
         <button class="btn btn-gold btn-sm" onclick="saveToSupabase(true)">💾 Save Draft</button>
         <button class="btn btn-success btn-sm" onclick="submitApplication()">📤 Submit Application</button>
+        <button class="btn btn-primary btn-sm" onclick="newApplication()">➕ New Application</button>
         <button class="btn btn-danger btn-sm" onclick="clearForm()">🗑 Clear Form</button>
+      </div>
+
+      <!-- Application Switcher -->
+      <div style="padding:14px 16px;border-top:1px solid var(--border);">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--gray);margin-bottom:10px;">My Applications</div>
+        <div id="app-switcher">
+          <div style="font-size:12px;color:var(--gray);padding:8px 0;">Loading...</div>
+        </div>
       </div>
     </nav>
 
@@ -1131,30 +1241,90 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
       <div class="panel" id="sec-admin">
         <div class="sec-header">
           <div class="sec-icon">⚙️</div>
-          <div class="sec-title"><h2>Admin Panel</h2><p>View, manage, and export all user submissions.</p></div>
+          <div class="sec-title"><h2>Admin Panel</h2><p>Manage users, review submissions, and export data.</p></div>
         </div>
-        <div class="card">
-          <div class="card-title">All Submissions</div>
-          <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-            <select id="admin-filter" onchange="loadAdminData()" style="width:auto;padding:8px 12px;">
-              <option value="all">All Status</option>
-              <option value="draft">Draft</option>
-              <option value="submitted">Submitted</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
-            <button class="btn btn-primary btn-sm" onclick="loadAdminData()">🔄 Refresh</button>
-            <button class="btn btn-gold btn-sm" onclick="exportAllCSV()">📊 Export CSV</button>
+
+        <!-- ── TAB BAR ── -->
+        <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;">
+          <button class="admin-tab active" onclick="switchAdminTab('submissions',this)" style="padding:10px 20px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;color:var(--navy);border-bottom:3px solid var(--gold);margin-bottom:-2px;font-family:inherit;">📋 Submissions</button>
+          <button class="admin-tab" onclick="switchAdminTab('users',this)" style="padding:10px 20px;font-size:13px;font-weight:700;border:none;background:none;cursor:pointer;color:var(--gray);border-bottom:3px solid transparent;margin-bottom:-2px;font-family:inherit;">👥 User Management</button>
+        </div>
+
+        <!-- ── SUBMISSIONS TAB ── -->
+        <div id="admin-tab-submissions">
+          <div class="card">
+            <div class="card-title">All Submissions</div>
+            <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+              <select id="admin-filter" onchange="loadAdminData()" style="width:auto;padding:8px 12px;">
+                <option value="all">All Status</option>
+                <option value="draft">Draft</option>
+                <option value="submitted">Submitted</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+              <button class="btn btn-primary btn-sm" onclick="loadAdminData()">🔄 Refresh</button>
+              <button class="btn btn-gold btn-sm" onclick="exportAllCSV()">📊 Export CSV</button>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="submissions-table">
+                <thead><tr><th>#</th><th>User Email</th><th>Programme</th><th>Institution</th><th>Status</th><th>Last Saved</th><th>Actions</th></tr></thead>
+                <tbody id="admin-tbody"><tr><td colspan="7" style="text-align:center;color:var(--gray);padding:24px;">Loading...</td></tr></tbody>
+              </table>
+            </div>
           </div>
-          <div style="overflow-x:auto;">
-            <table class="submissions-table">
-              <thead><tr><th>#</th><th>User Email</th><th>Programme</th><th>Institution</th><th>Status</th><th>Last Saved</th><th>Actions</th></tr></thead>
-              <tbody id="admin-tbody"><tr><td colspan="7" style="text-align:center;color:var(--gray);padding:24px;">Loading submissions...</td></tr></tbody>
-            </table>
+        </div>
+
+        <!-- ── USER MANAGEMENT TAB ── -->
+        <div id="admin-tab-users" style="display:none;">
+
+          <!-- Create user with password -->
+          <div class="card">
+            <div class="card-title">➕ Create User Account</div>
+            <div class="info"><strong>Admin creates the account directly.</strong> Set the email and password yourself, then share the credentials securely with the user. They can change their password anytime via "Forgot Password".</div>
+            <div class="row c2">
+              <div class="fg"><label>Full Name</label><input type="text" id="new-user-name" placeholder="Dr. Jane Mensah"></div>
+              <div class="fg"><label>Email Address <span class="req">*</span></label><input type="email" id="new-user-email" placeholder="jane.mensah@ucc.edu.gh"></div>
+            </div>
+            <div class="row c2">
+              <div class="fg"><label>Password <span class="req">*</span></label><input type="password" id="new-user-pwd" placeholder="Min. 8 characters"></div>
+              <div class="fg"><label>Confirm Password <span class="req">*</span></label><input type="password" id="new-user-pwd2" placeholder="Repeat password"></div>
+            </div>
+            <div id="create-user-error" class="auth-error" style="margin-bottom:10px;"></div>
+            <div id="create-user-success" class="auth-success" style="margin-bottom:10px;"></div>
+            <button class="btn btn-primary" onclick="adminCreateUser()">➕ Create Account</button>
           </div>
+
+          <!-- Send invite link -->
+          <div class="card">
+            <div class="card-title">✉️ Send Invite Link</div>
+            <div class="info"><strong>User sets their own password.</strong> Enter the user's email and click Send Invite. Supabase emails them a secure link where they create their own password. No password sharing needed.</div>
+            <div class="row c2">
+              <div class="fg"><label>Full Name (for your records)</label><input type="text" id="invite-name" placeholder="Dr. Jane Mensah"></div>
+              <div class="fg"><label>Email Address <span class="req">*</span></label><input type="email" id="invite-email" placeholder="jane.mensah@ucc.edu.gh"></div>
+            </div>
+            <div id="invite-error" class="auth-error" style="margin-bottom:10px;"></div>
+            <div id="invite-success" class="auth-success" style="margin-bottom:10px;"></div>
+            <button class="btn btn-gold" onclick="adminSendInvite()">✉️ Send Invite Email</button>
+            <p style="font-size:11px;color:var(--gray);margin-top:10px;">⚠ Invite links require the <strong>service_role</strong> key which cannot be used in a browser. Use this button to copy a pre-filled Supabase invite URL you can trigger from your Supabase dashboard instead.</p>
+          </div>
+
+          <!-- Existing users list -->
+          <div class="card">
+            <div class="card-title">👥 Registered Users</div>
+            <div style="display:flex;gap:10px;margin-bottom:12px;">
+              <button class="btn btn-primary btn-sm" onclick="loadUsersList()">🔄 Refresh List</button>
+            </div>
+            <div id="users-list-wrap" style="overflow-x:auto;">
+              <table class="submissions-table">
+                <thead><tr><th>#</th><th>Email</th><th>Created</th><th>Last Sign In</th><th>Role</th></tr></thead>
+                <tbody id="users-tbody"><tr><td colspan="5" style="text-align:center;color:var(--gray);padding:20px;">Click Refresh to load users</td></tr></tbody>
+              </table>
+            </div>
+            <p style="font-size:11px;color:var(--gray);margin-top:10px;">To delete a user or reset their password, go to <strong>Supabase → Authentication → Users</strong>.</p>
+          </div>
+
         </div>
       </div>
-
     </main>
   </div>
 </div>
@@ -1174,27 +1344,58 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
    3. Paste them below
    4. See SUPABASE_SETUP.md for SQL to run in the SQL editor
    ───────────────────────────────────────────────────────────── */
-const SUPABASE_URL  = 'https://bhxkxpqtlqhhlyowgbmn.supabase.co';   // e.g. https://xxxx.supabase.co
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJoeGt4cHF0bHFoaGx5b3dnYm1uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MjA2OTEsImV4cCI6MjA5Mjk5NjY5MX0.DKa04fr8lRYjJosa8lhPCGk87V7xJua-blpdVQ7D9Qg';      // safe to include here (anon key only)
+/* ── Load credentials from localStorage (set via config screen) ── */
+const SUPABASE_URL  = localStorage.getItem('sb_url')  || 'YOUR_SUPABASE_PROJECT_URL';
+const SUPABASE_ANON = localStorage.getItem('sb_anon') || 'YOUR_SUPABASE_ANON_KEY';
 
 /* Admin email list — these users see all submissions */
 const ADMIN_EMAILS  = [
+  'eaidoo@ucc.edu.gh',
   'admin@ucc.edu.gh',
   'gtec.portal@ucc.edu.gh',
   // Add more admin emails here
 ];
+
+
 
 /* ─────────────────────────────────────────────────────────────
    SUPABASE CLIENT
    ───────────────────────────────────────────────────────────── */
 let sb, currentUser, isAdmin = false;
 
+function saveConfig() {
+  const url  = document.getElementById('cfg-url').value.trim();
+  const anon = document.getElementById('cfg-anon').value.trim();
+  const errEl = document.getElementById('cfg-error');
+  errEl.style.display = 'none';
+  if (!url || !url.startsWith('https://')) {
+    document.getElementById('cfg-url').style.borderColor = '#c0392b';
+    errEl.textContent = '⚠ Project URL must start with https://'; errEl.style.display = 'block'; return;
+  }
+  if (!anon || !anon.startsWith('eyJ')) {
+    document.getElementById('cfg-anon').style.borderColor = '#c0392b';
+    errEl.textContent = '⚠ Anon key must start with eyJ...'; errEl.style.display = 'block'; return;
+  }
+  localStorage.setItem('sb_url', url);
+  localStorage.setItem('sb_anon', anon);
+  // Reload without ?setup param so URL is clean
+  window.location.href = window.location.pathname;
+}
+
+function needsConfig() {
+  const url  = localStorage.getItem('sb_url')  || '';
+  const anon = localStorage.getItem('sb_anon') || '';
+  return !url.startsWith('https://') || !anon.startsWith('eyJ');
+}
+
 function initSupabase() {
+  const url  = localStorage.getItem('sb_url')  || SUPABASE_URL;
+  const anon = localStorage.getItem('sb_anon') || SUPABASE_ANON;
   try {
-    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    sb = window.supabase.createClient(url, anon);
     return true;
   } catch(e) {
-    console.warn('Supabase init failed — running in offline mode:', e.message);
+    console.warn('Supabase init failed:', e.message);
     return false;
   }
 }
@@ -1205,9 +1406,12 @@ const sbReady = initSupabase();
    AUTH
    ───────────────────────────────────────────────────────────── */
 function switchTab(tab) {
-  ['login','signup','reset'].forEach(t => {
-    document.getElementById('tab-'+t).style.display = t===tab ? 'block' : 'none';
-    document.querySelectorAll('.auth-tab')[['login','signup','reset'].indexOf(t)].classList.toggle('active', t===tab);
+  ['login','reset'].forEach(t => {
+    const el = document.getElementById('tab-'+t);
+    if (el) el.style.display = t===tab ? 'block' : 'none';
+  });
+  document.querySelectorAll('.auth-tab').forEach((btn, i) => {
+    btn.classList.toggle('active', ['login','reset'][i] === tab);
   });
 }
 
@@ -1224,26 +1428,6 @@ async function doLogin() {
   if (error) { showAuthError('login', error.message); btn.innerHTML='Sign In'; btn.disabled=false; return; }
   await onLogin(data.user);
   btn.innerHTML='Sign In'; btn.disabled=false;
-}
-
-async function doSignup() {
-  const name  = document.getElementById('signup-name').value.trim();
-  const email = document.getElementById('signup-email').value.trim();
-  const pwd   = document.getElementById('signup-pwd').value;
-  const pwd2  = document.getElementById('signup-pwd2').value;
-  const btn   = document.getElementById('signup-btn');
-  document.getElementById('signup-error').classList.remove('show');
-  document.getElementById('signup-success').classList.remove('show');
-  if (!name || !email || !pwd) { showAuthError('signup','Please fill in all fields.'); return; }
-  if (pwd.length < 8) { showAuthError('signup','Password must be at least 8 characters.'); return; }
-  if (pwd !== pwd2)   { showAuthError('signup','Passwords do not match.'); return; }
-  if (!sbReady) { showAuthError('signup','Supabase not configured.'); return; }
-  btn.innerHTML='<span class="spinner"></span> Creating...'; btn.disabled=true;
-  const { data, error } = await sb.auth.signUp({ email, password: pwd, options: { data: { full_name: name } } });
-  if (error) { showAuthError('signup', error.message); btn.innerHTML='Create Account'; btn.disabled=false; return; }
-  document.getElementById('signup-success').textContent = '✅ Account created! Check your email to confirm, then sign in.';
-  document.getElementById('signup-success').classList.add('show');
-  btn.innerHTML='Create Account'; btn.disabled=false;
 }
 
 async function doReset() {
@@ -1367,9 +1551,12 @@ function restoreFormData(data) {
   updateEnrollTotals();
 }
 
+/* current application ID — null means "new unsaved application" */
+let currentAppId = null;
+
 async function saveToSupabase(showMsg = false) {
   if (!sbReady || !currentUser) {
-    if (showMsg) showToast('Not connected to Supabase — check configuration.', 'err');
+    if (showMsg) showToast('Not connected to Supabase.', 'err');
     return;
   }
   document.getElementById('save-status').textContent = 'Saving...';
@@ -1382,25 +1569,58 @@ async function saveToSupabase(showMsg = false) {
     status: 'draft',
     updated_at: new Date().toISOString(),
   };
-  const { error } = await sb.from('applications').upsert(payload, { onConflict: 'user_id' });
+  let error;
+  if (currentAppId) {
+    // UPDATE existing row
+    ({ error } = await sb.from('applications').update(payload).eq('id', currentAppId).eq('user_id', currentUser.id));
+  } else {
+    // INSERT new row
+    payload.created_at = new Date().toISOString();
+    const { data, error: insErr } = await sb.from('applications').insert(payload).select('id').single();
+    error = insErr;
+    if (data?.id) currentAppId = data.id;
+  }
   if (error) {
     document.getElementById('save-status').textContent = 'Save failed';
     if (showMsg) showToast('Save failed: ' + error.message, 'err');
   } else {
     document.getElementById('save-status').textContent = 'Saved ' + new Date().toLocaleTimeString();
-    if (showMsg) showToast('Draft saved to cloud ☁️', 'ok');
+    if (showMsg) showToast('Draft saved ☁️', 'ok');
+    refreshAppSwitcher();
   }
   updateProgress();
 }
 
 async function loadFromSupabase() {
   if (!sbReady || !currentUser) return;
-  const { data, error } = await sb.from('applications').select('form_data, status').eq('user_id', currentUser.id).maybeSingle();
+  // Load ALL applications for this user
+  const { data, error } = await sb.from('applications')
+    .select('id, programme_title, institution_name, status, updated_at, form_data')
+    .eq('user_id', currentUser.id)
+    .order('updated_at', { ascending: false });
   if (error) { console.warn('Load error:', error.message); return; }
-  if (data?.form_data) {
-    restoreFormData(data.form_data);
-    showToast('Previous application loaded.', 'ok');
+  if (data && data.length > 0) {
+    renderAppSwitcher(data);
+    // Auto-load the most recently updated one
+    await loadApplication(data[0].id, data[0]);
+  } else {
+    renderAppSwitcher([]);
+    showToast('No saved applications. Start filling the form!', 'ok');
   }
+}
+
+async function loadApplication(appId, rowData) {
+  if (!sbReady || !currentUser) return;
+  let formData = rowData?.form_data;
+  if (!formData) {
+    const { data } = await sb.from('applications').select('form_data').eq('id', appId).single();
+    formData = data?.form_data;
+  }
+  currentAppId = appId;
+  clearForm(true); // silent clear
+  if (formData) restoreFormData(formData);
+  highlightActiveApp(appId);
+  showToast('Application loaded.', 'ok');
 }
 
 async function submitApplication() {
@@ -1416,10 +1636,78 @@ async function submitApplication() {
     submitted_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
-  const { error } = await sb.from('applications').upsert(payload, { onConflict: 'user_id' });
+  let error;
+  if (currentAppId) {
+    ({ error } = await sb.from('applications').update(payload).eq('id', currentAppId).eq('user_id', currentUser.id));
+  } else {
+    payload.created_at = new Date().toISOString();
+    const { data, error: insErr } = await sb.from('applications').insert(payload).select('id').single();
+    error = insErr;
+    if (data?.id) currentAppId = data.id;
+  }
   if (error) { showToast('Submission failed: ' + error.message, 'err'); return; }
-  showToast('Application submitted successfully! ✅', 'ok');
+  showToast('Application submitted! ✅', 'ok');
+  refreshAppSwitcher();
   updateStatus();
+}
+
+async function newApplication() {
+  if (!confirm('Start a new application? Your current work is saved — you can switch back to it anytime.')) return;
+  await saveToSupabase(); // save current first
+  currentAppId = null;
+  clearForm(true);
+  show('preamble', document.querySelector('[data-sec=preamble]'));
+  showToast('New application started.', 'ok');
+  refreshAppSwitcher();
+}
+
+async function deleteApplication(appId, progTitle) {
+  if (!confirm('Delete "' + (progTitle||'this application') + '"? This cannot be undone.')) return;
+  const { error } = await sb.from('applications').delete().eq('id', appId).eq('user_id', currentUser.id);
+  if (error) { showToast('Delete failed: ' + error.message, 'err'); return; }
+  if (currentAppId === appId) {
+    currentAppId = null;
+    clearForm(true);
+  }
+  showToast('Application deleted.', '');
+  await loadFromSupabase();
+}
+
+async function refreshAppSwitcher() {
+  if (!sbReady || !currentUser) return;
+  const { data } = await sb.from('applications')
+    .select('id, programme_title, status, updated_at')
+    .eq('user_id', currentUser.id)
+    .order('updated_at', { ascending: false });
+  if (data) renderAppSwitcher(data);
+}
+
+function renderAppSwitcher(apps) {
+  const wrap = document.getElementById('app-switcher');
+  if (!wrap) return;
+  if (!apps || apps.length === 0) {
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--gray);padding:8px 0;">No saved applications yet.</div>';
+    return;
+  }
+  wrap.innerHTML = apps.map(app => `
+    <div onclick="loadApplication('${app.id}', null)" id="app-item-${app.id}"
+      style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1.5px solid var(--border);margin-bottom:8px;transition:all .2s;background:white;"
+      onmouseover="this.style.background='var(--gold-pale)'" onmouseout="this.style.background='${app.id===currentAppId?'var(--gold-pale)':'white'}'">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${app.programme_title||'Untitled Application'}</div>
+        <div style="font-size:10px;color:var(--gray);">${new Date(app.updated_at).toLocaleDateString('en-GB')} · <span class="status-badge status-${app.status}">${app.status}</span></div>
+      </div>
+      <button onclick="event.stopPropagation();deleteApplication('${app.id}','${(app.programme_title||'').replace(/'/g,'')}')" style="background:none;border:none;color:#ccc;cursor:pointer;font-size:16px;flex-shrink:0;" title="Delete">🗑</button>
+    </div>
+  `).join('');
+  highlightActiveApp(currentAppId);
+}
+
+function highlightActiveApp(appId) {
+  document.querySelectorAll('[id^="app-item-"]').forEach(el => {
+    el.style.background = el.id === 'app-item-'+appId ? 'var(--gold-pale)' : 'white';
+    el.style.borderColor = el.id === 'app-item-'+appId ? 'var(--gold)' : 'var(--border)';
+  });
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -1491,7 +1779,7 @@ function show(id, navEl) {
   document.getElementById('sec-'+id)?.classList.add('active');
   navEl?.classList.add('active');
   if (id==='export') buildChecklist();
-  if (id==='admin') loadAdminData();
+  if (id==='admin') { loadAdminData(); }
   window.scrollTo(0, 0);
 }
 
@@ -1627,13 +1915,15 @@ function updateEnrollTotals() {
   });
 }
 
-function clearForm() {
-  if (!confirm('Clear all form data? Your cloud save will not be deleted — you can reload it by refreshing.')) return;
+function clearForm(silent = false) {
+  if (!silent && !confirm('Clear all form data? Your saved applications are not deleted — switch back to them anytime from the sidebar.')) return;
   document.querySelectorAll('input[id], select[id], textarea[id]').forEach(el => { el.value = ''; });
-  document.getElementById('plo-container').innerHTML = '';
-  document.getElementById('staff-container').innerHTML = '';
+  const ploC = document.getElementById('plo-container');
+  const staffC = document.getElementById('staff-container');
+  if (ploC) ploC.innerHTML = '';
+  if (staffC) staffC.innerHTML = '';
   ['y1s1','y1s2','y2s1','y2s2','electives'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=''; });
-  showToast('Form cleared.', '');
+  if (!silent) showToast('Form cleared.', '');
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -1919,6 +2209,29 @@ async function exportWord() {
    INIT
    ───────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', async () => {
+  const params = new URLSearchParams(window.location.search);
+  const isSetupMode = params.get('setup') === 'gtec2024';  // secret param
+
+  // Config screen: only if ?setup=gtec2024 in URL
+  if (isSetupMode) {
+    document.getElementById('config-screen').style.display = 'flex';
+    document.getElementById('auth-screen').style.display = 'none';
+    const savedUrl  = localStorage.getItem('sb_url')  || '';
+    const savedAnon = localStorage.getItem('sb_anon') || '';
+    if (savedUrl)  document.getElementById('cfg-url').value  = savedUrl;
+    if (savedAnon) document.getElementById('cfg-anon').value = savedAnon;
+    return;
+  }
+
+  // If not configured and not in setup mode, show "contact admin" message
+  if (needsConfig()) {
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('login-error').textContent =
+      '⚠ Portal not yet configured. Contact the administrator: eaidoo@ucc.edu.gh';
+    document.getElementById('login-error').classList.add('show');
+    document.getElementById('login-btn').disabled = true;
+    return;
+  }
   // Populate defaults
   defaultPLOs.forEach(p => addPLO(p));
   Object.entries(defaultCourses).forEach(([tid,rows]) => rows.forEach(r => addCourse(tid,...r)));
