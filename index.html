@@ -1174,14 +1174,13 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
    3. Paste them below
    4. See SUPABASE_SETUP.md for SQL to run in the SQL editor
    ───────────────────────────────────────────────────────────── */
-const SUPABASE_URL  = 'https://bhxkxpqtlqhhlyowgbmn.supabase.co';   // e.g. https://xxxx.supabase.co
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJoeGt4cHF0bHFoaGx5b3dnYm1uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MjA2OTEsImV4cCI6MjA5Mjk5NjY5MX0.DKa04fr8lRYjJosa8lhPCGk87V7xJua-blpdVQ7D9Qg';      // safe to include here (anon key only)
+const SUPABASE_URL  = 'YOUR_SUPABASE_PROJECT_URL';   // e.g. https://xxxx.supabase.co
+const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY';      // safe to include here (anon key only)
 
 /* Admin email list — these users see all submissions */
 const ADMIN_EMAILS  = [
-  'eaidoo@ucc.edu.gh',
-  'j.deikumah@ucc.edu.gh',
-   'jtkwarteng@ucc.edu.gh',
+  'admin@ucc.edu.gh',
+  'gtec.portal@ucc.edu.gh',
   // Add more admin emails here
 ];
 
@@ -1446,7 +1445,7 @@ async function loadAdminData() {
       <td style="display:flex;gap:6px;">
         <button class="btn btn-sm btn-primary" onclick="adminApprove('${row.user_id}')">✅</button>
         <button class="btn btn-sm btn-danger" onclick="adminReject('${row.user_id}')">❌</button>
-        <button class="btn btn-sm btn-outline" onclick="adminExportPDF(${JSON.stringify(row.form_data).replace(/"/g,'&quot;')})">PDF</button>
+        <button class="btn btn-sm btn-outline" onclick="adminExportByUserId('${row.user_id}')">PDF</button>
       </td>
     </tr>
   `).join('');
@@ -1461,6 +1460,14 @@ async function adminReject(userId) {
   showToast('Application rejected ❌'); loadAdminData();
 }
 
+async function adminExportByUserId(userId) {
+  const { data } = await sb.from('applications').select('form_data').eq('user_id', userId).maybeSingle();
+  if (!data || !data.form_data) { showToast('No form data found.', 'err'); return; }
+  const current = collectFormData();
+  restoreFormData(data.form_data);
+  setTimeout(() => { exportPDF(); setTimeout(() => restoreFormData(current), 2000); }, 300);
+}
+
 async function exportAllCSV() {
   if (!sbReady || !isAdmin) return;
   const { data } = await sb.from('applications').select('user_email,programme_title,institution_name,status,submitted_at,updated_at');
@@ -1470,13 +1477,6 @@ async function exportAllCSV() {
   const csv = [headers, ...rows].map(r => r.map(v => `"${(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
   a.download = 'GTEC_Submissions_' + new Date().toISOString().split('T')[0] + '.csv'; a.click();
-}
-
-function adminExportPDF(formData) {
-  // Temporarily restore form data, export, then restore current user data
-  const current = collectFormData();
-  restoreFormData(formData);
-  setTimeout(() => { exportPDF(); setTimeout(() => restoreFormData(current), 2000); }, 300);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -1872,7 +1872,8 @@ async function exportWord() {
       document.querySelectorAll('#'+tid+' tr').forEach((row,ri)=>{
         const ins=row.querySelectorAll('input,select'); if(!ins[0])return;
         const fill=ri%2===0?'EAF2FB':white;
-        rows.push(new TableRow({children:[[...ins].slice(0,4).map((inp,i)=>new TableCell({children:[new Paragraph({children:[new TextRun({text:inp.value||'',size:16,font:'Arial'})]})],shading:{fill,type:ShadingType.CLEAR},width:{size:[1400,4800,800,1000][i],type:WidthType.DXA},borders:bords,margins:{top:60,bottom:60,left:100,right:100}}))]})});
+        const cells=[...ins].slice(0,4).map((inp,ci)=>new TableCell({children:[new Paragraph({children:[new TextRun({text:inp.value||'',size:16,font:'Arial'})]})],shading:{fill,type:ShadingType.CLEAR},width:{size:[1400,4800,800,1000][ci],type:WidthType.DXA},borders:bords,margins:{top:60,bottom:60,left:100,right:100}}));
+        rows.push(new TableRow({children:cells}));
       });
       return new Table({width:{size:8000,type:WidthType.DXA},columnWidths:[1400,4800,800,1000],rows});
     };
