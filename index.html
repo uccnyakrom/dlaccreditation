@@ -7,95 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
 
 <!-- ── Supabase SDK (CDN — safe for GitHub Pages) ── -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-/* ─────────────────────────────────────────────────────────────
-   ADMIN USER MANAGEMENT
-   ───────────────────────────────────────────────────────────── */
-function switchAdminTab(tab, btn) {
-  document.getElementById('admin-tab-submissions').style.display = tab==='submissions' ? 'block' : 'none';
-  document.getElementById('admin-tab-users').style.display = tab==='users' ? 'block' : 'none';
-  document.querySelectorAll('.admin-tab').forEach(b => {
-    b.style.color = 'var(--gray)';
-    b.style.borderBottomColor = 'transparent';
-  });
-  btn.style.color = 'var(--navy)';
-  btn.style.borderBottomColor = 'var(--gold)';
-  if (tab === 'users') loadUsersList();
-}
-
-async function adminCreateUser() {
-  const name  = document.getElementById('new-user-name').value.trim();
-  const email = document.getElementById('new-user-email').value.trim();
-  const pwd   = document.getElementById('new-user-pwd').value;
-  const pwd2  = document.getElementById('new-user-pwd2').value;
-  const errEl = document.getElementById('create-user-error');
-  const okEl  = document.getElementById('create-user-success');
-  errEl.classList.remove('show'); okEl.classList.remove('show');
-  if (!email) { errEl.textContent='⚠ Email is required.'; errEl.classList.add('show'); return; }
-  if (pwd.length < 8) { errEl.textContent='⚠ Password must be at least 8 characters.'; errEl.classList.add('show'); return; }
-  if (pwd !== pwd2) { errEl.textContent='⚠ Passwords do not match.'; errEl.classList.add('show'); return; }
-  if (!sbReady) { errEl.textContent='⚠ Supabase not configured.'; errEl.classList.add('show'); return; }
-  // Use signUp — works from browser without service_role key
-  const { data, error } = await sb.auth.signUp({
-    email, password: pwd,
-    options: { data: { full_name: name }, emailRedirectTo: window.location.href }
-  });
-  if (error) { errEl.textContent='⚠ '+error.message; errEl.classList.add('show'); return; }
-  okEl.textContent = '✅ Account created for '+email+'. Share the password with them securely. They can reset it anytime via "Forgot Password".';
-  okEl.classList.add('show');
-  document.getElementById('new-user-name').value = '';
-  document.getElementById('new-user-email').value = '';
-  document.getElementById('new-user-pwd').value = '';
-  document.getElementById('new-user-pwd2').value = '';
-  loadUsersList();
-  showToast('User created: '+email, 'ok');
-}
-
-async function adminSendInvite() {
-  const email = document.getElementById('invite-email').value.trim();
-  const name  = document.getElementById('invite-name').value.trim();
-  const errEl = document.getElementById('invite-error');
-  const okEl  = document.getElementById('invite-success');
-  errEl.classList.remove('show'); okEl.classList.remove('show');
-  if (!email) { errEl.textContent='⚠ Email is required.'; errEl.classList.add('show'); return; }
-  // Build the Supabase dashboard invite URL for the admin to use
-  const projectRef = SUPABASE_URL.replace('https://','').split('.')[0];
-  const dashUrl = `https://supabase.com/dashboard/project/${projectRef}/auth/users`;
-  okEl.innerHTML = `✅ To invite <strong>${email}</strong>:<br>
-    1. Go to <a href="${dashUrl}" target="_blank" style="color:var(--navy);font-weight:700;">Supabase → Authentication → Users</a><br>
-    2. Click <strong>"Invite user"</strong><br>
-    3. Enter <strong>${email}</strong> and click Send Invite<br>
-    4. They will receive an email to set their own password.`;
-  okEl.classList.add('show');
-}
-
-async function loadUsersList() {
-  const tbody = document.getElementById('users-tbody');
-  if (!sbReady || !isAdmin) return;
-  // Fetch from applications table to show registered users
-  const { data, error } = await sb.from('applications')
-    .select('user_email, created_at, updated_at')
-    .order('created_at', { ascending: false });
-  if (error || !data) {
-    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--error);padding:16px;">Could not load users.</td></tr>';
-    return;
-  }
-  if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--gray);padding:20px;">No registered users with applications yet.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = data.map((row, i) => `
-    <tr>
-      <td>${i+1}</td>
-      <td><strong>${row.user_email}</strong>${ADMIN_EMAILS.includes(row.user_email) ? ' <span class="admin-badge">Admin</span>' : ''}</td>
-      <td>${row.created_at ? new Date(row.created_at).toLocaleDateString('en-GB') : '—'}</td>
-      <td>${row.updated_at ? new Date(row.updated_at).toLocaleDateString('en-GB') : '—'}</td>
-      <td>${ADMIN_EMAILS.includes(row.user_email) ? '<span class="status-badge status-approved">Admin</span>' : '<span class="status-badge status-submitted">User</span>'}</td>
-    </tr>
-  `).join('');
-}
-
-</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- ── Export libraries ── -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.2.2/docx.umd.min.js"></script>
@@ -1711,6 +1623,106 @@ function highlightActiveApp(appId) {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   ADMIN USER MANAGEMENT
+   ───────────────────────────────────────────────────────────── */
+function switchAdminTab(tab, btn) {
+  document.getElementById('admin-tab-submissions').style.display = tab==='submissions' ? 'block' : 'none';
+  document.getElementById('admin-tab-users').style.display = tab==='users' ? 'block' : 'none';
+  document.querySelectorAll('.admin-tab').forEach(b => {
+    b.style.color = 'var(--gray)';
+    b.style.borderBottomColor = 'transparent';
+  });
+  btn.style.color = 'var(--navy)';
+  btn.style.borderBottomColor = 'var(--gold)';
+  if (tab === 'users') loadUsersList();
+}
+
+async function adminCreateUser() {
+  const name  = document.getElementById('new-user-name').value.trim();
+  const email = document.getElementById('new-user-email').value.trim();
+  const pwd   = document.getElementById('new-user-pwd').value;
+  const pwd2  = document.getElementById('new-user-pwd2').value;
+  const errEl = document.getElementById('create-user-error');
+  const okEl  = document.getElementById('create-user-success');
+  errEl.classList.remove('show'); okEl.classList.remove('show');
+  if (!email) { errEl.textContent='⚠ Email is required.'; errEl.classList.add('show'); return; }
+  if (pwd.length < 8) { errEl.textContent='⚠ Password must be at least 8 characters.'; errEl.classList.add('show'); return; }
+  if (pwd !== pwd2) { errEl.textContent='⚠ Passwords do not match.'; errEl.classList.add('show'); return; }
+  if (!sbReady) { errEl.textContent='⚠ Supabase not configured.'; errEl.classList.add('show'); return; }
+  errEl.textContent='⏳ Creating account...'; errEl.style.background='#fff3cd'; errEl.style.borderColor='#CFB53B'; errEl.style.color='#7d6608'; errEl.classList.add('show');
+  const { data, error } = await sb.auth.signUp({
+    email, password: pwd,
+    options: { data: { full_name: name }, emailRedirectTo: window.location.href }
+  });
+  errEl.classList.remove('show'); errEl.style.background=''; errEl.style.borderColor=''; errEl.style.color='';
+  if (error) { errEl.textContent='⚠ '+error.message; errEl.classList.add('show'); return; }
+  okEl.innerHTML = '✅ Account created for <strong>'+email+'</strong>.<br>Share these credentials securely:<br>• Email: '+email+'<br>• Password: '+pwd+'<br><small>They can change their password anytime via "Forgot Password".</small>';
+  okEl.classList.add('show');
+  document.getElementById('new-user-name').value = '';
+  document.getElementById('new-user-email').value = '';
+  document.getElementById('new-user-pwd').value = '';
+  document.getElementById('new-user-pwd2').value = '';
+  loadUsersList();
+  showToast('User created: '+email, 'ok');
+}
+
+async function adminSendInvite() {
+  const email = document.getElementById('invite-email').value.trim();
+  const errEl = document.getElementById('invite-error');
+  const okEl  = document.getElementById('invite-success');
+  errEl.classList.remove('show'); okEl.classList.remove('show');
+  if (!email) { errEl.textContent='⚠ Email is required.'; errEl.classList.add('show'); return; }
+  if (!email.includes('@')) { errEl.textContent='⚠ Enter a valid email address.'; errEl.classList.add('show'); return; }
+  const projectRef = (localStorage.getItem('sb_url')||'').replace('https://','').split('.')[0];
+  const dashUrl = projectRef
+    ? 'https://supabase.com/dashboard/project/'+projectRef+'/auth/users'
+    : 'https://supabase.com/dashboard';
+  okEl.innerHTML = `<strong>✅ Follow these steps to invite ${email}:</strong><br><br>
+    <span style="display:block;background:#f0f4f8;border-radius:6px;padding:10px 12px;font-size:12px;line-height:2;">
+    1. Click → <a href="${dashUrl}" target="_blank" style="color:var(--navy);font-weight:700;text-decoration:underline;">Open Supabase Auth Users</a><br>
+    2. Click the <strong>"Invite user"</strong> button (top right)<br>
+    3. Enter <strong>${email}</strong> and click <strong>Send Invite</strong><br>
+    4. The user receives an email with a link to set their own password
+    </span>`;
+  okEl.classList.add('show');
+  document.getElementById('invite-email').value = '';
+  document.getElementById('invite-name').value = '';
+}
+
+async function loadUsersList() {
+  const tbody = document.getElementById('users-tbody');
+  if (!sbReady || !isAdmin) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--error);padding:16px;">Admin access required.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--gray);padding:16px;">Loading...</td></tr>';
+  // Get distinct users from applications table
+  const { data, error } = await sb.from('applications')
+    .select('user_email, user_id, created_at, updated_at, status')
+    .order('updated_at', { ascending: false });
+  if (error || !data) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--error);padding:16px;">Could not load: '+( error?.message||'unknown error')+'</td></tr>';
+    return;
+  }
+  // Deduplicate by user_email
+  const seen = new Set();
+  const users = data.filter(r => { if (seen.has(r.user_email)) return false; seen.add(r.user_email); return true; });
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--gray);padding:20px;">No users have submitted applications yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = users.map((row, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${row.user_email}</strong>${ADMIN_EMAILS.includes(row.user_email) ? ' <span class="admin-badge">Admin</span>' : ''}</td>
+      <td>${row.created_at ? new Date(row.created_at).toLocaleDateString('en-GB') : '—'}</td>
+      <td>${row.updated_at ? new Date(row.updated_at).toLocaleDateString('en-GB') : '—'}</td>
+      <td>${ADMIN_EMAILS.includes(row.user_email) ? '<span class="status-badge status-approved">Admin</span>' : '<span class="status-badge status-submitted">User</span>'}</td>
+    </tr>
+  `).join('');
+}
+
+/* ─────────────────────────────────────────────────────────────
    ADMIN FUNCTIONS
    ───────────────────────────────────────────────────────────── */
 async function loadAdminData() {
@@ -1731,25 +1743,27 @@ async function loadAdminData() {
       <td><span class="status-badge status-${row.status}">${row.status}</span></td>
       <td>${row.updated_at ? new Date(row.updated_at).toLocaleDateString('en-GB') : '—'}</td>
       <td style="display:flex;gap:6px;">
-        <button class="btn btn-sm btn-primary" onclick="adminApprove('${row.user_id}')">✅</button>
-        <button class="btn btn-sm btn-danger" onclick="adminReject('${row.user_id}')">❌</button>
-        <button class="btn btn-sm btn-outline" onclick="adminExportByUserId('${row.user_id}')">PDF</button>
+        <button class="btn btn-sm btn-success" onclick="adminApprove('${row.id}')" title="Approve">✅ Approve</button>
+        <button class="btn btn-sm btn-danger" onclick="adminReject('${row.id}')" title="Reject">❌ Reject</button>
+        <button class="btn btn-sm btn-outline" onclick="adminExportByUserId('${row.id}')" title="Export PDF">📄 PDF</button>
       </td>
     </tr>
   `).join('');
 }
 
-async function adminApprove(userId) {
-  await sb.from('applications').update({ status: 'approved', updated_at: new Date().toISOString() }).eq('user_id', userId);
+async function adminApprove(rowId) {
+  const { error } = await sb.from('applications').update({ status: 'approved', updated_at: new Date().toISOString() }).eq('id', rowId);
+  if (error) { showToast('Error: ' + error.message, 'err'); return; }
   showToast('Application approved ✅', 'ok'); loadAdminData();
 }
-async function adminReject(userId) {
-  await sb.from('applications').update({ status: 'rejected', updated_at: new Date().toISOString() }).eq('user_id', userId);
+async function adminReject(rowId) {
+  const { error } = await sb.from('applications').update({ status: 'rejected', updated_at: new Date().toISOString() }).eq('id', rowId);
+  if (error) { showToast('Error: ' + error.message, 'err'); return; }
   showToast('Application rejected ❌'); loadAdminData();
 }
 
-async function adminExportByUserId(userId) {
-  const { data } = await sb.from('applications').select('form_data').eq('user_id', userId).maybeSingle();
+async function adminExportByUserId(rowId) {
+  const { data } = await sb.from('applications').select('form_data').eq('id', rowId).maybeSingle();
   if (!data || !data.form_data) { showToast('No form data found.', 'err'); return; }
   const current = collectFormData();
   restoreFormData(data.form_data);
