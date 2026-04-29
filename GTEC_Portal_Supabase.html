@@ -1,0 +1,1943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GTEC Accreditation Portal — UCC</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+<!-- ── Supabase SDK (CDN — safe for GitHub Pages) ── -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- ── Export libraries ── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.2.2/docx.umd.min.js"></script>
+
+<style>
+/* ════════════════════════════════════════════════════
+   DESIGN TOKENS
+════════════════════════════════════════════════════ */
+:root {
+  --navy:       #003366;
+  --navy-deep:  #001f42;
+  --navy-mid:   #004a8f;
+  --navy-light: #1a5276;
+  --gold:       #CFB53B;
+  --gold-lt:    #e8d46a;
+  --gold-pale:  #fdf9eb;
+  --white:      #ffffff;
+  --off-white:  #f6f8fc;
+  --border:     #dce3ef;
+  --gray:       #8896a8;
+  --text:       #1a2640;
+  --text-lt:    #4a5a70;
+  --success:    #1e7e5a;
+  --error:      #c0392b;
+  --warn:       #d97706;
+  --shadow:     0 4px 24px rgba(0,51,102,.10);
+  --shadow-lg:  0 8px 48px rgba(0,51,102,.18);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Source Sans 3', sans-serif;
+  background: var(--off-white);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ════════════════════════════════════════════════════
+   AUTH SCREEN
+════════════════════════════════════════════════════ */
+#auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--navy-deep) 0%, var(--navy) 55%, var(--navy-light) 100%);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+#auth-screen::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 20% 50%, rgba(207,181,59,.12) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 20%, rgba(0,74,143,.4) 0%, transparent 50%);
+}
+.auth-card {
+  background: white;
+  border-radius: 20px;
+  padding: 48px 44px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 24px 80px rgba(0,0,0,.35);
+  position: relative;
+}
+.auth-logo {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 32px;
+}
+.auth-logo-mark {
+  width: 52px; height: 52px;
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Playfair Display', serif;
+  font-size: 18px; font-weight: 900;
+  color: var(--gold);
+  box-shadow: 0 4px 16px rgba(0,51,102,.25);
+}
+.auth-logo-text h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 15px; color: var(--navy); font-weight: 700;
+}
+.auth-logo-text p { font-size: 11px; color: var(--gray); }
+.auth-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px; font-weight: 900;
+  color: var(--navy); margin-bottom: 6px;
+}
+.auth-sub { font-size: 14px; color: var(--text-lt); margin-bottom: 28px; }
+.auth-tabs {
+  display: flex; border-bottom: 2px solid var(--border);
+  margin-bottom: 28px; gap: 4px;
+}
+.auth-tab {
+  padding: 9px 20px;
+  font-size: 13px; font-weight: 700;
+  cursor: pointer; border: none; background: none;
+  color: var(--gray);
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all .2s;
+  font-family: inherit;
+}
+.auth-tab.active { color: var(--navy); border-bottom-color: var(--gold); }
+.auth-form { display: flex; flex-direction: column; gap: 16px; }
+.auth-form label {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .6px;
+  color: var(--navy); margin-bottom: 5px; display: block;
+}
+.auth-form input {
+  width: 100%; padding: 11px 14px;
+  border: 1.5px solid var(--border); border-radius: 9px;
+  font-family: inherit; font-size: 14px; color: var(--text);
+  background: var(--off-white);
+  transition: all .2s; outline: none;
+}
+.auth-form input:focus {
+  border-color: var(--navy);
+  background: white;
+  box-shadow: 0 0 0 3px rgba(0,51,102,.08);
+}
+.auth-divider {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 11px; color: var(--gray); margin: 4px 0;
+}
+.auth-divider::before, .auth-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+.auth-error {
+  background: #fde8e8; border: 1px solid #f5c6c6;
+  color: var(--error); border-radius: 8px;
+  padding: 10px 14px; font-size: 13px; font-weight: 600;
+  display: none;
+}
+.auth-error.show { display: block; }
+.auth-success {
+  background: #e6f4ee; border: 1px solid #a5d6b9;
+  color: var(--success); border-radius: 8px;
+  padding: 10px 14px; font-size: 13px; font-weight: 600;
+  display: none;
+}
+.auth-success.show { display: block; }
+.gtec-badge {
+  margin-top: 24px; text-align: center;
+  font-size: 11px; color: var(--gray);
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+
+/* ════════════════════════════════════════════════════
+   MAIN APP
+════════════════════════════════════════════════════ */
+#app-screen { display: none; flex-direction: column; min-height: 100vh; }
+#app-screen.visible { display: flex; }
+
+/* Header */
+.header {
+  background: linear-gradient(135deg, var(--navy-deep) 0%, var(--navy) 60%, var(--navy-light) 100%);
+  color: white; padding: 0;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 2px 24px rgba(0,0,0,.28);
+}
+.header-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 28px; gap: 20px;
+}
+.header-brand { display: flex; align-items: center; gap: 14px; }
+.h-logo {
+  width: 44px; height: 44px;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-lt) 100%);
+  border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Playfair Display', serif;
+  font-size: 16px; font-weight: 900; color: var(--navy-deep);
+}
+.h-title { font-family: 'Playfair Display', serif; font-size: 14px; font-weight: 700; }
+.h-sub { font-size: 10px; opacity: .65; text-transform: uppercase; letter-spacing: .5px; }
+.header-right { display: flex; align-items: center; gap: 16px; }
+.save-indicator {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: rgba(255,255,255,.6);
+}
+.save-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--gold); animation: blink 2s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+.progress-wrap { display: flex; align-items: center; gap: 8px; font-size: 11px; color: rgba(255,255,255,.7); }
+.progress-track { width: 100px; height: 5px; background: rgba(255,255,255,.2); border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-lt)); border-radius: 3px; transition: width .4s; width: 0%; }
+#pct { color: var(--gold-lt); font-weight: 700; }
+.user-pill {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+  border-radius: 20px; padding: 5px 14px 5px 8px; font-size: 12px;
+}
+.user-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--gold); color: var(--navy-deep);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 900;
+}
+.admin-badge {
+  background: var(--gold); color: var(--navy-deep);
+  font-size: 9px; font-weight: 900;
+  padding: 2px 7px; border-radius: 10px;
+  text-transform: uppercase; letter-spacing: .5px;
+}
+
+/* Layout */
+.app-body { display: flex; flex: 1; }
+
+/* Sidebar */
+.sidebar {
+  width: 270px; flex-shrink: 0;
+  background: white; border-right: 1px solid var(--border);
+  padding: 20px 0;
+  position: sticky; top: 68px;
+  height: calc(100vh - 68px); overflow-y: auto;
+}
+.sidebar-label {
+  padding: 0 18px 12px;
+  font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1.5px; color: var(--gray);
+  border-bottom: 1px solid var(--border); margin-bottom: 6px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 18px; cursor: pointer;
+  border-left: 3px solid transparent;
+  font-size: 13px; font-weight: 600; color: var(--text-lt);
+  transition: all .2s;
+}
+.nav-item:hover { background: var(--gold-pale); color: var(--navy); }
+.nav-item.active { background: var(--gold-pale); border-left-color: var(--gold); color: var(--navy); }
+.nav-item.done .nav-num { background: var(--success); color: white; }
+.nav-item.done .nav-check { opacity: 1; }
+.nav-num {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--border); color: var(--gray);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 900; flex-shrink: 0; transition: all .2s;
+}
+.nav-item.active .nav-num { background: var(--gold); color: var(--navy-deep); }
+.nav-lbl { flex: 1; }
+.nav-sub { font-size: 10px; color: var(--gray); font-weight: 400; display: block; }
+.nav-check { font-size: 11px; opacity: 0; color: var(--success); transition: opacity .2s; }
+.sidebar-actions {
+  padding: 16px 18px; border-top: 1px solid var(--border);
+  margin-top: 12px; display: flex; flex-direction: column; gap: 8px;
+}
+
+/* Main */
+.main { flex: 1; padding: 28px 36px; min-width: 0; }
+
+/* Section panels */
+.panel { display: none; animation: fadeUp .3s ease; }
+.panel.active { display: block; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+.sec-header {
+  display: flex; align-items: flex-start; gap: 18px;
+  margin-bottom: 28px; padding-bottom: 20px;
+  border-bottom: 2px solid var(--gold);
+}
+.sec-icon {
+  width: 52px; height: 52px;
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
+  border-radius: 13px; display: flex; align-items: center; justify-content: center;
+  font-size: 22px; flex-shrink: 0; box-shadow: var(--shadow);
+}
+.sec-title h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 24px; color: var(--navy); margin-bottom: 3px;
+}
+.sec-title p { font-size: 13px; color: var(--text-lt); }
+
+/* Cards */
+.card {
+  background: white; border-radius: 12px;
+  padding: 24px; margin-bottom: 18px;
+  box-shadow: var(--shadow); border: 1px solid var(--border);
+  transition: box-shadow .2s;
+}
+.card:hover { box-shadow: var(--shadow-lg); }
+.card-title {
+  font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .8px;
+  color: var(--navy); margin-bottom: 18px;
+  display: flex; align-items: center; gap: 8px;
+}
+.card-title::before {
+  content: ''; width: 4px; height: 15px;
+  background: var(--gold); border-radius: 2px;
+}
+
+/* Form */
+.row { display: grid; gap: 18px; margin-bottom: 18px; }
+.row.c2 { grid-template-columns: 1fr 1fr; }
+.row.c3 { grid-template-columns: 1fr 1fr 1fr; }
+.row.c1 { grid-template-columns: 1fr; }
+.fg { display: flex; flex-direction: column; gap: 5px; }
+.fg label {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px; color: var(--navy);
+}
+.fg label .req { color: var(--error); margin-left: 2px; }
+.fg .hint { font-size: 11px; color: var(--gray); font-style: italic; }
+input[type=text], input[type=email], input[type=tel],
+input[type=number], input[type=password], select, textarea {
+  width: 100%; padding: 10px 13px;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  font-family: inherit; font-size: 14px; color: var(--text);
+  background: var(--off-white); transition: all .2s; outline: none;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--navy); background: white;
+  box-shadow: 0 0 0 3px rgba(0,51,102,.08);
+}
+textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
+
+/* Tables */
+.tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.tbl th {
+  background: var(--navy); color: white;
+  padding: 9px 12px; text-align: left;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+}
+.tbl td {
+  padding: 7px 9px; border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.tbl tr:nth-child(even) td { background: var(--off-white); }
+.tbl td input, .tbl td select {
+  padding: 5px 7px; font-size: 12px; border-radius: 5px;
+}
+.tbl tfoot td {
+  background: var(--gold-pale); font-weight: 700;
+  color: var(--navy); border-top: 2px solid var(--gold);
+  padding: 9px 12px; font-size: 12px;
+}
+.add-row {
+  background: none; border: 1.5px dashed var(--navy-mid);
+  color: var(--navy); padding: 6px 14px; border-radius: 6px;
+  cursor: pointer; font-size: 12px; font-weight: 700;
+  margin-top: 8px; font-family: inherit; transition: all .2s;
+}
+.add-row:hover { background: var(--navy); color: white; border-style: solid; }
+.del { background: none; border: none; color: var(--error); cursor: pointer; font-size: 15px; padding: 2px 5px; border-radius: 4px; }
+.del:hover { background: #fde8e8; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 10px 20px; border-radius: 8px;
+  font-family: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer; border: none; transition: all .2s; letter-spacing: .2px;
+}
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn-primary { background: linear-gradient(135deg, var(--navy), var(--navy-mid)); color: white; box-shadow: 0 2px 12px rgba(0,51,102,.22); }
+.btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,51,102,.32); }
+.btn-gold { background: linear-gradient(135deg, var(--gold), var(--gold-lt)); color: var(--navy-deep); box-shadow: 0 2px 12px rgba(207,181,59,.3); }
+.btn-gold:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(207,181,59,.4); }
+.btn-outline { background: white; color: var(--navy); border: 1.5px solid var(--navy); }
+.btn-outline:hover { background: var(--navy); color: white; }
+.btn-danger { background: #fde8e8; color: var(--error); border: 1px solid #f5c6c6; }
+.btn-danger:hover { background: var(--error); color: white; }
+.btn-sm { padding: 7px 13px; font-size: 12px; }
+.btn-success { background: linear-gradient(135deg, #1e7e5a, #27ae74); color: white; }
+
+/* Nav buttons */
+.nav-btns {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border);
+}
+
+/* Info block */
+.info {
+  background: linear-gradient(135deg, #e8f4fd, #d6eaf8);
+  border-left: 4px solid var(--navy-mid);
+  padding: 14px 18px; border-radius: 0 8px 8px 0;
+  margin-bottom: 18px; font-size: 13px; color: var(--navy); line-height: 1.6;
+}
+.info strong { font-weight: 700; display: block; margin-bottom: 3px; }
+.gtec-ref {
+  background: var(--gold-pale); border: 1px solid var(--gold);
+  border-radius: 8px; padding: 10px 14px;
+  font-size: 11px; color: #7d6608; font-weight: 600; margin-bottom: 18px;
+  display: flex; align-items: center; gap: 7px;
+}
+
+/* Repeatable */
+.rep-item {
+  background: var(--off-white); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px; margin-bottom: 10px; position: relative;
+}
+.rep-item .del { position: absolute; top: 8px; right: 8px; }
+.rep-hdr { font-size: 11px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 10px; }
+
+/* Export panel */
+.export-hero {
+  background: linear-gradient(135deg, var(--navy-deep), var(--navy) 60%, var(--navy-light));
+  border-radius: 14px; padding: 28px; margin-bottom: 20px; color: white;
+}
+.export-hero h3 { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--gold-lt); margin-bottom: 5px; }
+.export-hero p { font-size: 13px; opacity: .8; margin-bottom: 20px; }
+.export-btns { display: flex; gap: 12px; flex-wrap: wrap; }
+.exp-card {
+  background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
+  border-radius: 10px; padding: 14px 18px; cursor: pointer;
+  text-align: center; min-width: 130px; transition: all .2s;
+}
+.exp-card:hover { background: rgba(255,255,255,.18); transform: translateY(-2px); border-color: var(--gold); }
+.exp-card .ei { font-size: 26px; margin-bottom: 5px; }
+.exp-card .el { font-size: 12px; font-weight: 700; }
+.exp-card .es { font-size: 10px; opacity: .6; }
+
+/* Admin panel */
+.admin-panel { display: none; }
+.admin-panel.visible { display: block; }
+.submissions-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+.submissions-table th { background: var(--navy); color: white; padding: 10px 14px; font-size: 11px; text-transform: uppercase; font-weight: 700; text-align: left; }
+.submissions-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.submissions-table tr:nth-child(even) td { background: var(--off-white); }
+.submissions-table tr:hover td { background: var(--gold-pale); }
+.status-badge {
+  display: inline-block; padding: 3px 10px; border-radius: 12px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+}
+.status-draft { background: #fff3cd; color: #856404; }
+.status-submitted { background: #d1ecf1; color: #0c5460; }
+.status-approved { background: #d4edda; color: #155724; }
+.status-rejected { background: #f8d7da; color: #721c24; }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 28px; right: 28px; z-index: 999;
+  background: var(--navy); color: white;
+  padding: 12px 22px; border-radius: 9px;
+  font-size: 13px; font-weight: 600;
+  transform: translateY(20px); opacity: 0;
+  transition: all .3s; box-shadow: var(--shadow-lg);
+  max-width: 340px;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.ok { background: var(--success); }
+.toast.err { background: var(--error); }
+
+/* Checklist */
+.chk-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 13px; border-radius: 7px; margin-bottom: 7px;
+  font-size: 13px; font-weight: 600;
+}
+.chk-item.done { background: #e8f5e9; color: var(--success); border: 1px solid #a5d6a7; }
+.chk-item.miss { background: #fde8e8; color: var(--error); border: 1px solid #f5c6c6; }
+
+/* Radio */
+.radio-grp { display: flex; gap: 16px; flex-wrap: wrap; padding: 6px 0; }
+.radio-opt { display: flex; align-items: center; gap: 7px; font-size: 14px; cursor: pointer; }
+.radio-opt input { width: auto; cursor: pointer; }
+
+/* Spinner */
+.spinner {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: white; border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--border); }
+::-webkit-scrollbar-thumb { background: var(--navy-mid); border-radius: 3px; }
+
+@media(max-width:900px){
+  .sidebar{ display:none; }
+  .main{ padding:16px; }
+  .row.c2,.row.c3{ grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     AUTH SCREEN
+══════════════════════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-mark">UCC</div>
+      <div class="auth-logo-text">
+        <h2>University of Cape Coast</h2>
+        <p>GTEC Accreditation Portal · GTEC/INFO.A.7</p>
+      </div>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">Sign In</button>
+      <button class="auth-tab" onclick="switchTab('signup')">Create Account</button>
+      <button class="auth-tab" onclick="switchTab('reset')">Reset Password</button>
+    </div>
+
+    <!-- Login -->
+    <div id="tab-login">
+      <h3 class="auth-title">Welcome back</h3>
+      <p class="auth-sub">Sign in to continue your accreditation application.</p>
+      <div class="auth-form">
+        <div id="login-error" class="auth-error"></div>
+        <div><label>Email Address</label><input type="email" id="login-email" placeholder="you@institution.edu.gh" autocomplete="email"></div>
+        <div><label>Password</label><input type="password" id="login-pwd" placeholder="••••••••" autocomplete="current-password"></div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="doLogin()" id="login-btn">
+          Sign In
+        </button>
+      </div>
+    </div>
+
+    <!-- Signup -->
+    <div id="tab-signup" style="display:none;">
+      <h3 class="auth-title">Create account</h3>
+      <p class="auth-sub">Register to start a new accreditation application.</p>
+      <div class="auth-form">
+        <div id="signup-error" class="auth-error"></div>
+        <div id="signup-success" class="auth-success"></div>
+        <div><label>Full Name</label><input type="text" id="signup-name" placeholder="Dr. Jane Mensah"></div>
+        <div><label>Email Address</label><input type="email" id="signup-email" placeholder="you@institution.edu.gh"></div>
+        <div><label>Password <span style="color:var(--gray);font-weight:400;text-transform:none;">(min. 8 characters)</span></label><input type="password" id="signup-pwd" placeholder="••••••••"></div>
+        <div><label>Confirm Password</label><input type="password" id="signup-pwd2" placeholder="••••••••"></div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="doSignup()" id="signup-btn">
+          Create Account
+        </button>
+      </div>
+    </div>
+
+    <!-- Reset -->
+    <div id="tab-reset" style="display:none;">
+      <h3 class="auth-title">Reset password</h3>
+      <p class="auth-sub">We'll send a reset link to your email.</p>
+      <div class="auth-form">
+        <div id="reset-error" class="auth-error"></div>
+        <div id="reset-success" class="auth-success"></div>
+        <div><label>Email Address</label><input type="email" id="reset-email" placeholder="you@institution.edu.gh"></div>
+        <button class="btn btn-outline" style="width:100%;justify-content:center;" onclick="doReset()" id="reset-btn">
+          Send Reset Link
+        </button>
+      </div>
+    </div>
+
+    <div class="gtec-badge">🔒 Secured by Supabase · Data encrypted at rest · Ghana Data Protection Act compliant</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     MAIN APP
+══════════════════════════════════════════════════ -->
+<div id="app-screen">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-brand">
+        <div class="h-logo">UCC</div>
+        <div>
+          <div class="h-title">GTEC Accreditation Portal</div>
+          <div class="h-sub">Ghana Tertiary Education Commission · GTEC/INFO.A.7</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="save-indicator"><div class="save-dot"></div><span id="save-status">Ready</span></div>
+        <div class="progress-wrap">
+          <span>Progress</span>
+          <div class="progress-track"><div class="progress-fill" id="pbar"></div></div>
+          <span id="pct">0%</span>
+        </div>
+        <div class="user-pill">
+          <div class="user-avatar" id="user-avatar">?</div>
+          <span id="user-email-display" style="font-size:12px;"></span>
+          <span id="admin-badge-wrap"></span>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="doLogout()" style="color:white;border-color:rgba(255,255,255,.4);">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <div class="sidebar-label">Application Sections</div>
+
+      <div class="nav-item active" onclick="show('welcome',this)">
+        <div class="nav-num">★</div>
+        <div class="nav-lbl">Overview<span class="nav-sub">Getting started</span></div>
+      </div>
+      <div class="nav-item" data-sec="preamble" onclick="show('preamble',this)">
+        <div class="nav-num">1</div>
+        <div class="nav-lbl">Preamble<span class="nav-sub">Background &amp; context</span></div>
+        <span class="nav-check">✓</span>
+      </div>
+      <div class="nav-item" data-sec="purpose" onclick="show('purpose',this)">
+        <div class="nav-num">2</div>
+        <div class="nav-lbl">Purpose<span class="nav-sub">Objectives</span></div>
+        <span class="nav-check">✓</span>
+      </div>
+      <div class="nav-item" data-sec="requirements" onclick="show('requirements',this)">
+        <div class="nav-num">3</div>
+        <div class="nav-lbl">Requirements<span class="nav-sub">Eligibility</span></div>
+        <span class="nav-check">✓</span>
+      </div>
+      <div class="nav-item" data-sec="institutional" onclick="show('institutional',this)">
+        <div class="nav-num">4</div>
+        <div class="nav-lbl">Institutional Details<span class="nav-sub">Institution info</span></div>
+        <span class="nav-check">✓</span>
+      </div>
+      <div class="nav-item" data-sec="dlpolicy" onclick="show('dlpolicy',this)">
+        <div class="nav-num">5</div>
+        <div class="nav-lbl">DL Policy<span class="nav-sub">Distance learning policy</span></div>
+        <span class="nav-check">✓</span>
+      </div>
+      <div class="nav-item" data-sec="programme" onclick="show('programme',this)">
+        <div class="nav-num">6</div>
+        <div class="nav-lbl">Programme Details<span class="nav-sub">Goals, entry, enrollment</span></div>
+        <span class="nav-check">✓</span>
+      </div>
+      <div class="nav-item" data-sec="courses" onclick="show('courses',this)">
+        <div class="nav-num">7</div>
+        <div class="nav-lbl">Course Structure<span class="nav-sub">Curriculum &amp; schedule</span></div>
+        <span class="nav-check">✓</span>
+      </div>
+      <div class="nav-item" data-sec="delivery" onclick="show('delivery',this)">
+        <div class="nav-num">8</div>
+        <div class="nav-lbl">Delivery &amp; Management<span class="nav-sub">ICT, assessment, staff</span></div>
+        <span class="nav-check">✓</span>
+      </div>
+      <div class="nav-item" onclick="show('export',this)">
+        <div class="nav-num">✦</div>
+        <div class="nav-lbl">Export Document<span class="nav-sub">PDF &amp; Word</span></div>
+      </div>
+      <div class="nav-item" id="admin-nav" style="display:none;" onclick="show('admin',this)">
+        <div class="nav-num">⚙</div>
+        <div class="nav-lbl">Admin Panel<span class="nav-sub">All submissions</span></div>
+      </div>
+
+      <div class="sidebar-actions">
+        <button class="btn btn-gold btn-sm" onclick="saveToSupabase(true)">💾 Save Draft</button>
+        <button class="btn btn-success btn-sm" onclick="submitApplication()">📤 Submit Application</button>
+        <button class="btn btn-danger btn-sm" onclick="clearForm()">🗑 Clear Form</button>
+      </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="main">
+
+      <!-- WELCOME -->
+      <div class="panel active" id="sec-welcome">
+        <div style="max-width:700px;margin:0 auto;">
+          <div style="background:linear-gradient(135deg,var(--navy-deep),var(--navy) 60%,var(--navy-light));color:white;border-radius:16px;padding:44px;margin-bottom:24px;text-align:center;position:relative;overflow:hidden;">
+            <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 30% 40%,rgba(207,181,59,.15),transparent 60%);"></div>
+            <h2 style="font-family:'Playfair Display',serif;font-size:30px;margin-bottom:10px;position:relative;">GTEC Accreditation <span style="color:var(--gold-lt);">Digital Portal</span></h2>
+            <p style="font-size:14px;opacity:.85;max-width:500px;margin:0 auto 24px;position:relative;line-height:1.7;">Complete your GTEC/INFO.A.7 Distance Education Programme accreditation form digitally. Your progress saves automatically to your account — resume from any device.</p>
+            <div style="display:flex;justify-content:center;gap:32px;position:relative;">
+              <div><div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:900;color:var(--gold-lt);">8</div><div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;">Sections</div></div>
+              <div><div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:900;color:var(--gold-lt);">60+</div><div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;">Fields</div></div>
+              <div><div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:900;color:var(--gold-lt);">☁</div><div style="font-size:11px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;">Cloud Saved</div></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;">
+            <div class="card" style="display:flex;gap:14px;align-items:flex-start;">
+              <span style="font-size:26px;">☁️</span>
+              <div><h4 style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:3px;">Cloud Auto-Save</h4><p style="font-size:12px;color:var(--text-lt);line-height:1.5;">Your data saves to Supabase automatically every 30 seconds and on every section transition.</p></div>
+            </div>
+            <div class="card" style="display:flex;gap:14px;align-items:flex-start;">
+              <span style="font-size:26px;">🔒</span>
+              <div><h4 style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:3px;">Row-Level Security</h4><p style="font-size:12px;color:var(--text-lt);line-height:1.5;">Only you can see your application data. Admin users have a separate elevated view.</p></div>
+            </div>
+            <div class="card" style="display:flex;gap:14px;align-items:flex-start;">
+              <span style="font-size:26px;">📄</span>
+              <div><h4 style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:3px;">PDF &amp; Word Export</h4><p style="font-size:12px;color:var(--text-lt);line-height:1.5;">Generate a professionally formatted GTEC/INFO.A.7 document ready for submission.</p></div>
+            </div>
+            <div class="card" style="display:flex;gap:14px;align-items:flex-start;">
+              <span style="font-size:26px;">👤</span>
+              <div><h4 style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:3px;">Admin Dashboard</h4><p style="font-size:12px;color:var(--text-lt);line-height:1.5;">Designated admins can view, approve, reject, and export all submissions.</p></div>
+            </div>
+          </div>
+          <div id="app-status-card" class="card" style="border-left:4px solid var(--gold);"></div>
+          <div style="text-align:center;margin-top:20px;">
+            <button class="btn btn-primary" onclick="show('preamble',document.querySelector('[data-sec=preamble]'))" style="font-size:14px;padding:13px 32px;">Begin Application →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 1: PREAMBLE -->
+      <div class="panel" id="sec-preamble">
+        <div class="sec-header">
+          <div class="sec-icon">📖</div>
+          <div class="sec-title"><h2>1. Preamble</h2><p>Review GTEC distance learning framework and confirm institutional awareness.</p></div>
+        </div>
+        <div class="gtec-ref">📋 GTEC/INFO.A.7 — Section 1: Preamble. This section confirms the institution understands the DE regulatory framework.</div>
+        <div class="card">
+          <div class="card-title">Institutional DL Context Statement</div>
+          <div class="row c1">
+            <div class="fg"><label>Institutional Statement on DL Context <span class="req">*</span></label>
+              <textarea id="p_context" rows="5" placeholder="Describe how your institution positions itself within the distance learning framework..."></textarea></div>
+          </div>
+          <div class="row c1">
+            <div class="fg"><label>Technology &amp; Internet Integration</label>
+              <textarea id="p_tech" rows="4" placeholder="Describe how technology and internet advances are integrated into your DL programme delivery..."></textarea></div>
+          </div>
+          <div class="row c1">
+            <div class="fg"><label>Confirmation of GTEC Compliance <span class="req">*</span></label>
+              <div class="radio-grp">
+                <label class="radio-opt"><input type="radio" name="p_confirm" value="yes"> The institution confirms it will operate in accordance with GTEC requirements, standards and norms.</label>
+                <label class="radio-opt"><input type="radio" name="p_confirm" value="clarify"> The institution requires further clarification before confirming compliance.</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="nav-btns">
+          <div></div>
+          <button class="btn btn-primary" onclick="next('preamble','purpose')">Next: Purpose →</button>
+        </div>
+      </div>
+
+      <!-- SECTION 2: PURPOSE -->
+      <div class="panel" id="sec-purpose">
+        <div class="sec-header">
+          <div class="sec-icon">🎯</div>
+          <div class="sec-title"><h2>2. Purpose</h2><p>State the objectives for seeking GTEC approval.</p></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Purpose Statement</div>
+          <div class="row c1"><div class="fg"><label>Primary Purpose of Seeking GTEC Approval <span class="req">*</span></label>
+            <textarea id="pu_primary" rows="4" placeholder="State the primary reasons your institution is seeking GTEC approval for this DL programme..."></textarea></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">GTEC Objectives — Institutional Response</div>
+          <div class="row c1"><div class="fg"><label>1. Seeking GTEC Approval for DE Programmes</label><textarea id="pu_obj1" rows="3" placeholder="How does your application align with this objective?"></textarea></div></div>
+          <div class="row c1"><div class="fg"><label>2. Defining DL Programmes within the Tertiary System</label><textarea id="pu_obj2" rows="3" placeholder="Describe how your DL programme situates within traditional tertiary education..."></textarea></div></div>
+          <div class="row c1"><div class="fg"><label>3. Planning Educational Functions of Technology / ICT</label><textarea id="pu_obj3" rows="3" placeholder="Outline how technology is planned to augment academic and administrative objectives..."></textarea></div></div>
+          <div class="row c1"><div class="fg"><label>4. Ensuring Quality and Comparable DL Programmes</label><textarea id="pu_obj4" rows="3" placeholder="Describe quality assurance mechanisms to ensure parity with the conventional system..."></textarea></div></div>
+          <div class="row c1"><div class="fg"><label>5. Institutional Policies and Procedures</label><textarea id="pu_obj5" rows="3" placeholder="List policies covering administration, faculty, admissions, programme design, copyrights, assessment..."></textarea></div></div>
+        </div>
+        <div class="nav-btns">
+          <button class="btn btn-outline" onclick="prev('purpose','preamble')">← Preamble</button>
+          <button class="btn btn-primary" onclick="next('purpose','requirements')">Next: Requirements →</button>
+        </div>
+      </div>
+
+      <!-- SECTION 3: REQUIREMENTS -->
+      <div class="panel" id="sec-requirements">
+        <div class="sec-header">
+          <div class="sec-icon">✅</div>
+          <div class="sec-title"><h2>3. Requirements for Accreditation</h2><p>Confirm eligibility conditions for running distance learning programmes.</p></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Eligibility Checklist</div>
+          <div class="row c1">
+            <div class="fg"><label>Condition 1: Accreditation to Run Conventional University Programme <span class="req">*</span></label>
+              <div class="radio-grp">
+                <label class="radio-opt"><input type="radio" name="r_c1" value="yes"> ✅ Yes</label>
+                <label class="radio-opt"><input type="radio" name="r_c1" value="no"> ❌ No</label>
+              </div>
+              <textarea id="r_c1_detail" rows="2" placeholder="Accreditation reference, date, issuing body..." style="margin-top:8px;"></textarea>
+            </div>
+          </div>
+          <div class="row c1">
+            <div class="fg"><label>Condition 2: Completed Application Form GTEC/INFO.A.7 <span class="req">*</span></label>
+              <div class="radio-grp">
+                <label class="radio-opt"><input type="radio" name="r_c2" value="yes"> ✅ Yes — this completed form constitutes the application</label>
+                <label class="radio-opt"><input type="radio" name="r_c2" value="partial"> ⚠ Partially completed</label>
+              </div>
+            </div>
+          </div>
+          <div class="row c1">
+            <div class="fg"><label>Condition 3: Ready for Institutional Field Visit Assessment <span class="req">*</span></label>
+              <div class="radio-grp">
+                <label class="radio-opt"><input type="radio" name="r_c3" value="yes"> ✅ Yes</label>
+                <label class="radio-opt"><input type="radio" name="r_c3" value="no"> ❌ Not yet</label>
+              </div>
+              <textarea id="r_c3_detail" rows="3" placeholder="List human and educational resources, physical and virtual spaces prepared..." style="margin-top:8px;"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="nav-btns">
+          <button class="btn btn-outline" onclick="prev('requirements','purpose')">← Purpose</button>
+          <button class="btn btn-primary" onclick="next('requirements','institutional')">Next: Institutional Details →</button>
+        </div>
+      </div>
+
+      <!-- SECTION 4: INSTITUTIONAL DETAILS -->
+      <div class="panel" id="sec-institutional">
+        <div class="sec-header">
+          <div class="sec-icon">🏛️</div>
+          <div class="sec-title"><h2>4. Institutional Details</h2><p>Full institution information, contact details and affiliations.</p></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Basic Information</div>
+          <div class="row c2">
+            <div class="fg"><label>Name of Institution <span class="req">*</span></label><input type="text" id="i_name" placeholder="University of Cape Coast" value="UNIVERSITY OF CAPE COAST"></div>
+            <div class="fg"><label>Date of Establishment <span class="req">*</span></label><input type="text" id="i_estab" placeholder="e.g. 1962" value="1962"></div>
+          </div>
+          <div class="row c2">
+            <div class="fg"><label>Type of Institution <span class="req">*</span></label>
+              <select id="i_type"><option value="University" selected>University</option><option>College</option><option>Polytechnic</option><option>Technical University</option><option>Other</option></select>
+            </div>
+            <div class="fg"><label>Date of Last Accreditation</label><input type="text" id="i_last_accred" placeholder="e.g. 2023"></div>
+          </div>
+          <div class="row c2">
+            <div class="fg"><label>Public Institution?</label>
+              <div class="radio-grp">
+                <label class="radio-opt"><input type="radio" name="i_public" value="yes" checked> Yes</label>
+                <label class="radio-opt"><input type="radio" name="i_public" value="no"> No</label>
+              </div>
+            </div>
+            <div class="fg"><label>Academic Collaborations / Affiliations?</label>
+              <div class="radio-grp">
+                <label class="radio-opt"><input type="radio" name="i_collab" value="yes"> Yes — submit MOU</label>
+                <label class="radio-opt"><input type="radio" name="i_collab" value="no" checked> No</label>
+              </div>
+            </div>
+          </div>
+          <div class="row c1"><div class="fg"><label>Name of Award Institution (if different)</label><input type="text" id="i_award_inst" placeholder="Leave blank if same"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Contact Information</div>
+          <div class="row c2">
+            <div class="fg"><label>Contact Person Name <span class="req">*</span></label><input type="text" id="i_contact_name" value="Esq. Gideon Abbeyquaye"></div>
+            <div class="fg"><label>Title / Position <span class="req">*</span></label><input type="text" id="i_contact_title" value="Director, Directorate of Academic Affairs"></div>
+          </div>
+          <div class="row c3">
+            <div class="fg"><label>Address</label><input type="text" id="i_contact_addr" placeholder="Postal address"></div>
+            <div class="fg"><label>Telephone <span class="req">*</span></label><input type="tel" id="i_contact_tel" value="0208162005"></div>
+            <div class="fg"><label>Email <span class="req">*</span></label><input type="email" id="i_contact_email" value="daa@ucc.edu.gh"></div>
+          </div>
+        </div>
+        <div class="nav-btns">
+          <button class="btn btn-outline" onclick="prev('institutional','requirements')">← Requirements</button>
+          <button class="btn btn-primary" onclick="next('institutional','dlpolicy')">Next: DL Policy →</button>
+        </div>
+      </div>
+
+      <!-- SECTION 5: DL POLICY -->
+      <div class="panel" id="sec-dlpolicy">
+        <div class="sec-header">
+          <div class="sec-icon">📜</div>
+          <div class="sec-title"><h2>5. Distance Learning Policy</h2><p>No institution shall run a DE degree/diploma without a DL implementation policy.</p></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Mission &amp; Philosophy Integration</div>
+          <div class="row c1"><div class="fg"><label>How the DL Programme Integrates with Institutional Mission &amp; Philosophy <span class="req">*</span></label>
+            <textarea id="dl_mission" rows="6" placeholder="Describe alignment with institutional mission, equal access philosophy, academic quality, and innovation...">The Distance Education (DE) programme at the University of Cape Coast is fully integrated with the institution's academic mission and philosophy. The University's mission is to provide quality education through comprehensive liberal and professional programmes that challenge learners to be creative, innovative, and responsible citizens. The DE programme embodies this mission by offering flexible, accessible education to non-traditional learners.</textarea></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Technology Policy Statement</div>
+          <div class="row c1"><div class="fg"><label>Policy on Technology Variability for Teaching, Learning &amp; Research <span class="req">*</span></label>
+            <textarea id="dl_tech" rows="6" placeholder="Describe technology policy: blended learning, LMS, mobile learning, multimedia, cloud solutions..."></textarea></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Leadership &amp; Governance</div>
+          <div class="row c1"><div class="fg"><label>How DE Policy on Leadership Conforms to Institutional Governance <span class="req">*</span></label>
+            <textarea id="dl_gov" rows="6" placeholder="Explain governance structure, roles and responsibilities, parity with conventional system, monitoring..."></textarea></div></div>
+        </div>
+        <div class="nav-btns">
+          <button class="btn btn-outline" onclick="prev('dlpolicy','institutional')">← Institutional Details</button>
+          <button class="btn btn-primary" onclick="next('dlpolicy','programme')">Next: Programme Details →</button>
+        </div>
+      </div>
+
+      <!-- SECTION 6: PROGRAMME DETAILS -->
+      <div class="panel" id="sec-programme">
+        <div class="sec-header">
+          <div class="sec-icon">🎓</div>
+          <div class="sec-title"><h2>6. Programme Details</h2><p>Complete information on the proposed distance learning programme.</p></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Basic Programme Information</div>
+          <div class="row c2">
+            <div class="fg"><label>Programme Title <span class="req">*</span></label><input type="text" id="pr_title" value="Master of Science (Sustainability & Governance Management)"></div>
+            <div class="fg"><label>Level <span class="req">*</span></label>
+              <select id="pr_level"><option>Diploma</option><option>HND</option><option>BA</option><option>BSc</option><option value="MSc" selected>MSc</option><option>MPhil</option><option>MBA</option><option>PhD</option></select></div>
+          </div>
+          <div class="row c2">
+            <div class="fg"><label>Related to Regular Programme?</label>
+              <div class="radio-grp"><label class="radio-opt"><input type="radio" name="pr_related" value="yes" checked> Yes</label><label class="radio-opt"><input type="radio" name="pr_related" value="no"> No</label></div>
+            </div>
+            <div class="fg"><label>Related Programme(s)</label><input type="text" id="pr_related_prog" placeholder="e.g. Master of Commerce (Management)"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Programme Goals &amp; Learning Outcomes</div>
+          <div class="row c1"><div class="fg"><label>Programme Goals (Aims) <span class="req">*</span></label>
+            <textarea id="pr_goals" rows="5" placeholder="State the programme's overarching goals..."></textarea></div></div>
+          <div id="plo-container"></div>
+          <button class="add-row" onclick="addPLO()">+ Add Programme Learning Outcome</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Objectives &amp; Entry Requirements</div>
+          <div class="row c1"><div class="fg"><label>Programme Objectives <span class="req">*</span></label>
+            <textarea id="pr_objectives" rows="5" placeholder="List specific objectives for graduates..."></textarea></div></div>
+          <div class="row c1"><div class="fg"><label>Entry Requirements — First Degree Applicants <span class="req">*</span></label>
+            <textarea id="pr_entry_a" rows="4" placeholder="State requirements for first degree holders...">A first degree applicant must: Have obtained a first degree with at least Second-Class Lower Division in Management or a related field; Submit official transcripts; Submit two referees' reports; Submit a 2–3 page study proposal; Satisfy any additional departmental requirements.</textarea></div></div>
+          <div class="row c1"><div class="fg"><label>Entry Requirements — Non-Research Master's Applicants</label>
+            <textarea id="pr_entry_b" rows="3" placeholder="State requirements for non-research master's degree holders..."></textarea></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Duration, Ownership &amp; Enrollment</div>
+          <div class="row c3">
+            <div class="fg"><label>Full-time Duration</label><input type="text" id="pr_duration" value="Two Years / One Year (Top-Up)"></div>
+            <div class="fg"><label>Time Limit</label><input type="text" id="pr_timelimit" value="Four Years / Two Years (Top-Up)"></div>
+            <div class="fg"><label>Programme Owner</label><input type="text" id="pr_owner" value="University of Cape Coast"></div>
+          </div>
+          <div class="info"><strong>Table 1: Projected Student Enrollment</strong>Complete enrollment projections for the next three academic years.</div>
+          <div style="overflow-x:auto;">
+            <table class="tbl" id="enroll-tbl">
+              <thead>
+                <tr><th rowspan="2">Centre</th><th colspan="3">Year 1 (2024/25)</th><th colspan="3">Year 2 (2025/26)</th><th colspan="3">Year 3 (2026/27)</th><th rowspan="2"></th></tr>
+                <tr><th>F</th><th>M</th><th>Total</th><th>F</th><th>M</th><th>Total</th><th>F</th><th>M</th><th>Total</th></tr>
+              </thead>
+              <tbody id="enroll-body">
+                <tr>
+                  <td><input type="text" value="CoDE, UCC" style="width:120px"></td>
+                  <td><input type="number" class="ef" value="0" style="width:45px" min="0"></td><td><input type="number" class="em" value="0" style="width:45px" min="0"></td><td class="et">0</td>
+                  <td><input type="number" class="ef" value="0" style="width:45px" min="0"></td><td><input type="number" class="em" value="0" style="width:45px" min="0"></td><td class="et">0</td>
+                  <td><input type="number" class="ef" value="0" style="width:45px" min="0"></td><td><input type="number" class="em" value="0" style="width:45px" min="0"></td><td class="et">0</td>
+                  <td><button class="del" onclick="this.closest('tr').remove()">✕</button></td>
+                </tr>
+                <tr>
+                  <td><input type="text" value="Papafio-Accra" style="width:120px"></td>
+                  <td><input type="number" class="ef" value="0" style="width:45px" min="0"></td><td><input type="number" class="em" value="0" style="width:45px" min="0"></td><td class="et">0</td>
+                  <td><input type="number" class="ef" value="0" style="width:45px" min="0"></td><td><input type="number" class="em" value="0" style="width:45px" min="0"></td><td class="et">0</td>
+                  <td><input type="number" class="ef" value="0" style="width:45px" min="0"></td><td><input type="number" class="em" value="0" style="width:45px" min="0"></td><td class="et">0</td>
+                  <td><button class="del" onclick="this.closest('tr').remove()">✕</button></td>
+                </tr>
+                <tr>
+                  <td><input type="text" value="Agona Nyarkrom" style="width:120px"></td>
+                  <td><input type="number" class="ef" value="0" style="width:45px" min="0"></td><td><input type="number" class="em" value="0" style="width:45px" min="0"></td><td class="et">0</td>
+                  <td><input type="number" class="ef" value="0" style="width:45px" min="0"></td><td><input type="number" class="em" value="0" style="width:45px" min="0"></td><td class="et">0</td>
+                  <td><input type="number" class="ef" value="0" style="width:45px" min="0"></td><td><input type="number" class="em" value="0" style="width:45px" min="0"></td><td class="et">0</td>
+                  <td><button class="del" onclick="this.closest('tr').remove()">✕</button></td>
+                </tr>
+                <tr>
+                  <td><input type="text" value="Domenase, Kumasi" style="width:120px"></td>
+                  <td><input type="number" class="ef" value="0" style="width:45px" min="0"></td><td><input type="number" class="em" value="0" style="width:45px" min="0"></td><td class="et">0</td>
+                  <td><input type="number" class="ef" value="0" style="width:45px" min="0"></td><td><input type="number" class="em" value="0" style="width:45px" min="0"></td><td class="et">0</td>
+                  <td><input type="number" class="ef" value="0" style="width:45px" min="0"></td><td><input type="number" class="em" value="0" style="width:45px" min="0"></td><td class="et">0</td>
+                  <td><button class="del" onclick="this.closest('tr').remove()">✕</button></td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr><td><strong>Total</strong></td>
+                  <td id="ty1f">0</td><td id="ty1m">0</td><td id="ty1t">0</td>
+                  <td id="ty2f">0</td><td id="ty2m">0</td><td id="ty2t">0</td>
+                  <td id="ty3f">0</td><td id="ty3m">0</td><td id="ty3t">0</td><td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <button class="add-row" onclick="addEnrollRow()">+ Add Centre</button>
+        </div>
+        <div class="nav-btns">
+          <button class="btn btn-outline" onclick="prev('programme','dlpolicy')">← DL Policy</button>
+          <button class="btn btn-primary" onclick="next('programme','courses')">Next: Course Structure →</button>
+        </div>
+      </div>
+
+      <!-- SECTION 7: COURSES -->
+      <div class="panel" id="sec-courses">
+        <div class="sec-header">
+          <div class="sec-icon">📚</div>
+          <div class="sec-title"><h2>7. Course Structure</h2><p>Curriculum, course descriptions, credit values, and semester schedule.</p></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Credit Requirements</div>
+          <div class="row c3">
+            <div class="fg"><label>Total Credits for Graduation</label><input type="number" id="cr_total" value="54"></div>
+            <div class="fg"><label>Minimum CGPA</label><input type="text" id="cr_cgpa" value="2.00"></div>
+            <div class="fg"><label>Pass Mark per Course</label><input type="text" id="cr_pass" value="60%"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Year 1: Semester 1</div>
+          <div style="overflow-x:auto;">
+            <table class="tbl"><thead><tr><th>Code</th><th>Course Title</th><th>Credits</th><th>Type</th><th></th></tr></thead>
+            <tbody id="y1s1"></tbody></table>
+          </div>
+          <button class="add-row" onclick="addCourse('y1s1')">+ Add Course</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Year 1: Semester 2</div>
+          <div style="overflow-x:auto;">
+            <table class="tbl"><thead><tr><th>Code</th><th>Course Title</th><th>Credits</th><th>Type</th><th></th></tr></thead>
+            <tbody id="y1s2"></tbody></table>
+          </div>
+          <button class="add-row" onclick="addCourse('y1s2')">+ Add Course</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Year 2: Semester 1</div>
+          <div style="overflow-x:auto;">
+            <table class="tbl"><thead><tr><th>Code</th><th>Course Title</th><th>Credits</th><th>Type</th><th></th></tr></thead>
+            <tbody id="y2s1"></tbody></table>
+          </div>
+          <button class="add-row" onclick="addCourse('y2s1')">+ Add Course</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Year 2: Semester 2</div>
+          <div style="overflow-x:auto;">
+            <table class="tbl"><thead><tr><th>Code</th><th>Course Title</th><th>Credits</th><th>Type</th><th></th></tr></thead>
+            <tbody id="y2s2"></tbody></table>
+          </div>
+          <button class="add-row" onclick="addCourse('y2s2')">+ Add Course</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Elective Courses</div>
+          <div style="overflow-x:auto;">
+            <table class="tbl"><thead><tr><th>Code</th><th>Course Title</th><th>Credits</th><th></th></tr></thead>
+            <tbody id="electives"></tbody></table>
+          </div>
+          <button class="add-row" onclick="addElective()">+ Add Elective</button>
+        </div>
+        <div class="nav-btns">
+          <button class="btn btn-outline" onclick="prev('courses','programme')">← Programme Details</button>
+          <button class="btn btn-primary" onclick="next('courses','delivery')">Next: Delivery →</button>
+        </div>
+      </div>
+
+      <!-- SECTION 8: DELIVERY -->
+      <div class="panel" id="sec-delivery">
+        <div class="sec-header">
+          <div class="sec-icon">🖥️</div>
+          <div class="sec-title"><h2>8. Delivery &amp; Management</h2><p>ICT infrastructure, delivery methods, assessment, academic integrity, and staff qualifications.</p></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Mode of Delivery</div>
+          <div class="row c2">
+            <div class="fg"><label>Primary LMS Platform</label><input type="text" id="d_lms" value="Canvas LMS (Powered by Astria Learning)"></div>
+            <div class="fg"><label>Engagement Type</label>
+              <select id="d_engagement"><option value="both" selected>Both Synchronous &amp; Asynchronous</option><option value="sync">Synchronous only</option><option value="async">Asynchronous only</option></select></div>
+          </div>
+          <div class="row c1"><div class="fg"><label>Types of Course Delivery &amp; Classroom Management <span class="req">*</span></label>
+            <textarea id="d_delivery" rows="4">Delivered through technology-mediated solutions including pre-recorded lectures, synchronous online discussions via Astria Learning powered Canvas LMS, group and individual presentations, and online activities.</textarea></div></div>
+          <div class="row c1"><div class="fg"><label>Access for Diverse Learners (including students with disabilities)</label>
+            <textarea id="d_access" rows="3">The LMS incorporates accessibility features such as read-aloud functionality and assistive tools to enhance the learning experience for students with disabilities.</textarea></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">ICT Infrastructure</div>
+          <div class="row c1"><div class="fg"><label>Physical Infrastructure <span class="req">*</span></label>
+            <textarea id="d_physical" rows="4">UCC operates several study centres across Ghana as regional hubs. ICT centres are available at the main campus. An eLearning Centre provides advanced technological infrastructure for online programme development and delivery.</textarea></div></div>
+          <div class="row c1"><div class="fg"><label>Technological (ICT) Infrastructure <span class="req">*</span></label>
+            <textarea id="d_tech" rows="4">UCC uses Astria Learning powered Canvas LMS as the primary platform. High-speed internet connectivity is provided across main campuses. The Astria Campus Management System (ACMS) manages student records, automating tasks and securing all data.</textarea></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Assessment &amp; Grading</div>
+          <div class="row c1"><div class="fg"><label>Formative Assessment Methods <span class="req">*</span></label>
+            <textarea id="d_formative" rows="4">Formative assessments include: Asynchronous discussions (initial posts and peer engagement); topic-specific assignments promoting critical thinking; quizzes covering multiple-choice, true/false, short answer, and essay forms; and peer assessments where applicable.</textarea></div></div>
+          <div class="row c1"><div class="fg"><label>Summative Assessment Methods <span class="req">*</span></label>
+            <textarea id="d_summative" rows="4">Summative assessments include: Final Papers/Seminar Papers (research-based, introduced in second week of course); and Final Quizzes (combination of multiple-choice, true/false, short answer, and essay questions — timed and proctored).</textarea></div></div>
+          <div class="row c2">
+            <div class="fg"><label>Plagiarism Detection</label><textarea id="d_plagiarism" rows="3">In-built LMS plagiarism detection (Turnitin integrated), manual instructor review, and peer review in select courses — multi-layered approach.</textarea></div>
+            <div class="fg"><label>Examination Conduct</label>
+              <select id="d_exam"><option value="online_proctored" selected>Online and Proctored</option><option value="online_non">Online and Non-Proctored</option><option value="physical">Physical and Proctored</option><option value="both">Both Physical and Online</option></select></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Academic Integrity &amp; Quality Assurance</div>
+          <div class="row c1"><div class="fg"><label>Measures for Student Identity Authentication <span class="req">*</span></label>
+            <textarea id="d_integrity" rows="4">Each student receives a unique student ID and secure login credentials with strong password policies. Online proctoring monitors examinations via webcam and screen capture. All data is SSL-encrypted and stored in compliance with the Ghana Data Protection Act.</textarea></div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Staff Details (Table 4)</div>
+          <div id="staff-container"></div>
+          <button class="add-row" onclick="addStaff()">+ Add Staff Member</button>
+        </div>
+        <div class="nav-btns">
+          <button class="btn btn-outline" onclick="prev('delivery','courses')">← Course Structure</button>
+          <button class="btn btn-primary" onclick="next('delivery','export')">Proceed to Export →</button>
+        </div>
+      </div>
+
+      <!-- EXPORT -->
+      <div class="panel" id="sec-export">
+        <div class="sec-header">
+          <div class="sec-icon">📤</div>
+          <div class="sec-title"><h2>Export Document</h2><p>Generate your GTEC/INFO.A.7 submission-ready document.</p></div>
+        </div>
+        <div class="export-hero">
+          <h3>Generate Accreditation Document</h3>
+          <p>Your completed form will be formatted into a professional document matching the original GTEC/INFO.A.7 template — with proper headings, tables, sections, and pagination.</p>
+          <div class="export-btns">
+            <div class="exp-card" onclick="exportPDF()"><div class="ei">📄</div><div class="el">PDF</div><div class="es">Formatted · Printable</div></div>
+            <div class="exp-card" onclick="exportWord()"><div class="ei">📃</div><div class="el">Word (.docx)</div><div class="es">Editable · Official</div></div>
+            <div class="exp-card" onclick="submitApplication()"><div class="ei">✅</div><div class="el">Submit Application</div><div class="es">Save to Supabase</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Submission Checklist</div>
+          <div id="checklist"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Required Supporting Documents</div>
+          <div class="info"><strong>Submit these alongside GTEC/INFO.A.7:</strong></div>
+          <ul style="list-style:disc;padding-left:22px;font-size:13px;line-height:2.2;color:var(--text);">
+            <li>DE policies with directions, processes and key performance outcomes</li>
+            <li>Faculty policy / handbook</li>
+            <li>Student policy / handbook</li>
+            <li>User manuals for technology-mediated pedagogy</li>
+            <li>Copy of MOU and relevant documents (if academic collaborations exist)</li>
+            <li>Staff publications and technical reports</li>
+            <li>DE financial plan / composite budget</li>
+            <li>Seasonal mid-year and end-of-year reports (for academic audit)</li>
+            <li>LMS appraisal report (for academic audit)</li>
+          </ul>
+        </div>
+        <div class="nav-btns">
+          <button class="btn btn-outline" onclick="prev('export','delivery')">← Delivery &amp; Management</button>
+          <button class="btn btn-gold" onclick="exportPDF()">📄 Download PDF</button>
+        </div>
+      </div>
+
+      <!-- ADMIN PANEL -->
+      <div class="panel" id="sec-admin">
+        <div class="sec-header">
+          <div class="sec-icon">⚙️</div>
+          <div class="sec-title"><h2>Admin Panel</h2><p>View, manage, and export all user submissions.</p></div>
+        </div>
+        <div class="card">
+          <div class="card-title">All Submissions</div>
+          <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+            <select id="admin-filter" onchange="loadAdminData()" style="width:auto;padding:8px 12px;">
+              <option value="all">All Status</option>
+              <option value="draft">Draft</option>
+              <option value="submitted">Submitted</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="loadAdminData()">🔄 Refresh</button>
+            <button class="btn btn-gold btn-sm" onclick="exportAllCSV()">📊 Export CSV</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="submissions-table">
+              <thead><tr><th>#</th><th>User Email</th><th>Programme</th><th>Institution</th><th>Status</th><th>Last Saved</th><th>Actions</th></tr></thead>
+              <tbody id="admin-tbody"><tr><td colspan="7" style="text-align:center;color:var(--gray);padding:24px;">Loading submissions...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════ -->
+<script>
+/* ─────────────────────────────────────────────────────────────
+   ⚠️  CONFIGURATION — REPLACE BEFORE DEPLOYMENT
+   ─────────────────────────────────────────────────────────────
+   1. Go to your Supabase project → Settings → API
+   2. Copy "Project URL" and "anon / public" key
+   3. Paste them below
+   4. See SUPABASE_SETUP.md for SQL to run in the SQL editor
+   ───────────────────────────────────────────────────────────── */
+const SUPABASE_URL  = 'YOUR_SUPABASE_PROJECT_URL';   // e.g. https://xxxx.supabase.co
+const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY';      // safe to include here (anon key only)
+
+/* Admin email list — these users see all submissions */
+const ADMIN_EMAILS  = [
+  'admin@ucc.edu.gh',
+  'gtec.portal@ucc.edu.gh',
+  // Add more admin emails here
+];
+
+/* ─────────────────────────────────────────────────────────────
+   SUPABASE CLIENT
+   ───────────────────────────────────────────────────────────── */
+let sb, currentUser, isAdmin = false;
+
+function initSupabase() {
+  try {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    return true;
+  } catch(e) {
+    console.warn('Supabase init failed — running in offline mode:', e.message);
+    return false;
+  }
+}
+
+const sbReady = initSupabase();
+
+/* ─────────────────────────────────────────────────────────────
+   AUTH
+   ───────────────────────────────────────────────────────────── */
+function switchTab(tab) {
+  ['login','signup','reset'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t===tab ? 'block' : 'none';
+    document.querySelectorAll('.auth-tab')[['login','signup','reset'].indexOf(t)].classList.toggle('active', t===tab);
+  });
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pwd   = document.getElementById('login-pwd').value;
+  const btn   = document.getElementById('login-btn');
+  const err   = document.getElementById('login-error');
+  err.classList.remove('show');
+  if (!email || !pwd) { showAuthError('login', 'Please enter your email and password.'); return; }
+  btn.innerHTML = '<span class="spinner"></span> Signing in...'; btn.disabled = true;
+  if (!sbReady) { showAuthError('login', 'Supabase not configured. Please add your Project URL and Anon Key.'); btn.innerHTML='Sign In'; btn.disabled=false; return; }
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pwd });
+  if (error) { showAuthError('login', error.message); btn.innerHTML='Sign In'; btn.disabled=false; return; }
+  await onLogin(data.user);
+  btn.innerHTML='Sign In'; btn.disabled=false;
+}
+
+async function doSignup() {
+  const name  = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const pwd   = document.getElementById('signup-pwd').value;
+  const pwd2  = document.getElementById('signup-pwd2').value;
+  const btn   = document.getElementById('signup-btn');
+  document.getElementById('signup-error').classList.remove('show');
+  document.getElementById('signup-success').classList.remove('show');
+  if (!name || !email || !pwd) { showAuthError('signup','Please fill in all fields.'); return; }
+  if (pwd.length < 8) { showAuthError('signup','Password must be at least 8 characters.'); return; }
+  if (pwd !== pwd2)   { showAuthError('signup','Passwords do not match.'); return; }
+  if (!sbReady) { showAuthError('signup','Supabase not configured.'); return; }
+  btn.innerHTML='<span class="spinner"></span> Creating...'; btn.disabled=true;
+  const { data, error } = await sb.auth.signUp({ email, password: pwd, options: { data: { full_name: name } } });
+  if (error) { showAuthError('signup', error.message); btn.innerHTML='Create Account'; btn.disabled=false; return; }
+  document.getElementById('signup-success').textContent = '✅ Account created! Check your email to confirm, then sign in.';
+  document.getElementById('signup-success').classList.add('show');
+  btn.innerHTML='Create Account'; btn.disabled=false;
+}
+
+async function doReset() {
+  const email = document.getElementById('reset-email').value.trim();
+  if (!email) { showAuthError('reset','Please enter your email.'); return; }
+  if (!sbReady) { showAuthError('reset','Supabase not configured.'); return; }
+  const { error } = await sb.auth.resetPasswordForEmail(email);
+  if (error) { showAuthError('reset', error.message); return; }
+  document.getElementById('reset-success').textContent = '✅ Reset link sent — check your inbox.';
+  document.getElementById('reset-success').classList.add('show');
+}
+
+async function doLogout() {
+  if (sbReady) await sb.auth.signOut();
+  currentUser = null; isAdmin = false;
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app-screen').classList.remove('visible');
+}
+
+function showAuthError(tab, msg) {
+  const el = document.getElementById(tab+'-error');
+  el.textContent = '⚠ ' + msg;
+  el.classList.add('show');
+}
+
+async function onLogin(user) {
+  currentUser = user;
+  isAdmin = ADMIN_EMAILS.includes(user.email);
+  // UI
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').classList.add('visible');
+  document.getElementById('user-email-display').textContent = user.email;
+  document.getElementById('user-avatar').textContent = (user.email[0]||'?').toUpperCase();
+  if (isAdmin) {
+    document.getElementById('admin-badge-wrap').innerHTML = '<span class="admin-badge">Admin</span>';
+    document.getElementById('admin-nav').style.display = 'flex';
+  }
+  // Load data
+  await loadFromSupabase();
+  updateStatus();
+  showToast('Welcome back! Your data has been loaded.', 'ok');
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SUPABASE DATABASE
+   ───────────────────────────────────────────────────────────── */
+function collectFormData() {
+  const data = {};
+  document.querySelectorAll('input[id], select[id], textarea[id]').forEach(el => {
+    data[el.id] = el.value;
+  });
+  data._radios = {};
+  document.querySelectorAll('input[type=radio]:checked').forEach(el => {
+    data._radios[el.name] = el.value;
+  });
+  // Tables
+  data._courses = {};
+  ['y1s1','y1s2','y2s1','y2s2','electives'].forEach(tid => {
+    data._courses[tid] = [];
+    document.querySelectorAll('#'+tid+' tr').forEach(tr => {
+      const ins = tr.querySelectorAll('input,select');
+      if (ins.length) data._courses[tid].push([...ins].map(i => i.value));
+    });
+  });
+  data._plos = [];
+  document.querySelectorAll('#plo-container textarea').forEach(ta => data._plos.push(ta.value));
+  data._staff = [];
+  document.querySelectorAll('#staff-container .rep-item').forEach(item => {
+    const ins = item.querySelectorAll('input,select');
+    data._staff.push([...ins].map(i => i.value));
+  });
+  data._enrollment = [];
+  document.querySelectorAll('#enroll-body tr').forEach(tr => {
+    const ins = tr.querySelectorAll('input');
+    if (ins.length) data._enrollment.push([...ins].map(i => i.value));
+  });
+  return data;
+}
+
+function restoreFormData(data) {
+  if (!data) return;
+  Object.entries(data).forEach(([key, val]) => {
+    if (key.startsWith('_')) return;
+    const el = document.getElementById(key);
+    if (el && el.tagName !== 'INPUT' || (el && el.type !== 'radio' && el.type !== 'checkbox')) {
+      if (el) el.value = val;
+    }
+  });
+  if (data._radios) {
+    Object.entries(data._radios).forEach(([name, val]) => {
+      const el = document.querySelector(`input[name="${name}"][value="${val}"]`);
+      if (el) el.checked = true;
+    });
+  }
+  if (data._plos) {
+    document.getElementById('plo-container').innerHTML = '';
+    data._plos.forEach(p => addPLO(p));
+  }
+  if (data._courses) {
+    Object.entries(data._courses).forEach(([tid, rows]) => {
+      const tbody = document.getElementById(tid);
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      rows.forEach(vals => {
+        if (tid === 'electives') {
+          addElective(vals[0], vals[1], vals[2]);
+        } else {
+          addCourse(tid, vals[0], vals[1], vals[2], vals[3]);
+        }
+      });
+    });
+  }
+  if (data._staff) {
+    document.getElementById('staff-container').innerHTML = '';
+    data._staff.forEach(vals => addStaff(vals));
+  }
+  if (data._enrollment) {
+    document.getElementById('enroll-body').innerHTML = '';
+    data._enrollment.forEach(vals => addEnrollRow(vals[0], vals.slice(1)));
+  }
+  updateEnrollTotals();
+}
+
+async function saveToSupabase(showMsg = false) {
+  if (!sbReady || !currentUser) {
+    if (showMsg) showToast('Not connected to Supabase — check configuration.', 'err');
+    return;
+  }
+  document.getElementById('save-status').textContent = 'Saving...';
+  const payload = {
+    user_id: currentUser.id,
+    user_email: currentUser.email,
+    form_data: collectFormData(),
+    programme_title: document.getElementById('pr_title')?.value || '',
+    institution_name: document.getElementById('i_name')?.value || '',
+    status: 'draft',
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await sb.from('applications').upsert(payload, { onConflict: 'user_id' });
+  if (error) {
+    document.getElementById('save-status').textContent = 'Save failed';
+    if (showMsg) showToast('Save failed: ' + error.message, 'err');
+  } else {
+    document.getElementById('save-status').textContent = 'Saved ' + new Date().toLocaleTimeString();
+    if (showMsg) showToast('Draft saved to cloud ☁️', 'ok');
+  }
+  updateProgress();
+}
+
+async function loadFromSupabase() {
+  if (!sbReady || !currentUser) return;
+  const { data, error } = await sb.from('applications').select('form_data, status').eq('user_id', currentUser.id).maybeSingle();
+  if (error) { console.warn('Load error:', error.message); return; }
+  if (data?.form_data) {
+    restoreFormData(data.form_data);
+    showToast('Previous application loaded.', 'ok');
+  }
+}
+
+async function submitApplication() {
+  if (!sbReady || !currentUser) { showToast('Please connect Supabase first.', 'err'); return; }
+  if (!confirm('Submit this application? You can still edit after submission.')) return;
+  const payload = {
+    user_id: currentUser.id,
+    user_email: currentUser.email,
+    form_data: collectFormData(),
+    programme_title: document.getElementById('pr_title')?.value || '',
+    institution_name: document.getElementById('i_name')?.value || '',
+    status: 'submitted',
+    submitted_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await sb.from('applications').upsert(payload, { onConflict: 'user_id' });
+  if (error) { showToast('Submission failed: ' + error.message, 'err'); return; }
+  showToast('Application submitted successfully! ✅', 'ok');
+  updateStatus();
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ADMIN FUNCTIONS
+   ───────────────────────────────────────────────────────────── */
+async function loadAdminData() {
+  if (!isAdmin || !sbReady) return;
+  const filter = document.getElementById('admin-filter').value;
+  let query = sb.from('applications').select('*').order('updated_at', { ascending: false });
+  if (filter !== 'all') query = query.eq('status', filter);
+  const { data, error } = await query;
+  const tbody = document.getElementById('admin-tbody');
+  if (error || !data) { tbody.innerHTML = `<tr><td colspan="7" style="color:var(--error);padding:16px;">Error loading: ${error?.message}</td></tr>`; return; }
+  if (!data.length) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--gray);padding:24px;">No submissions found.</td></tr>`; return; }
+  tbody.innerHTML = data.map((row, i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${row.user_email}</td>
+      <td>${row.programme_title || '—'}</td>
+      <td>${row.institution_name || '—'}</td>
+      <td><span class="status-badge status-${row.status}">${row.status}</span></td>
+      <td>${row.updated_at ? new Date(row.updated_at).toLocaleDateString('en-GB') : '—'}</td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn btn-sm btn-primary" onclick="adminApprove('${row.user_id}')">✅</button>
+        <button class="btn btn-sm btn-danger" onclick="adminReject('${row.user_id}')">❌</button>
+        <button class="btn btn-sm btn-outline" onclick="adminExportPDF(${JSON.stringify(row.form_data).replace(/"/g,'&quot;')})">PDF</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function adminApprove(userId) {
+  await sb.from('applications').update({ status: 'approved', updated_at: new Date().toISOString() }).eq('user_id', userId);
+  showToast('Application approved ✅', 'ok'); loadAdminData();
+}
+async function adminReject(userId) {
+  await sb.from('applications').update({ status: 'rejected', updated_at: new Date().toISOString() }).eq('user_id', userId);
+  showToast('Application rejected ❌'); loadAdminData();
+}
+
+async function exportAllCSV() {
+  if (!sbReady || !isAdmin) return;
+  const { data } = await sb.from('applications').select('user_email,programme_title,institution_name,status,submitted_at,updated_at');
+  if (!data) return;
+  const headers = ['Email','Programme','Institution','Status','Submitted','Last Updated'];
+  const rows = data.map(r => [r.user_email, r.programme_title, r.institution_name, r.status, r.submitted_at||'', r.updated_at||'']);
+  const csv = [headers, ...rows].map(r => r.map(v => `"${(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'GTEC_Submissions_' + new Date().toISOString().split('T')[0] + '.csv'; a.click();
+}
+
+function adminExportPDF(formData) {
+  // Temporarily restore form data, export, then restore current user data
+  const current = collectFormData();
+  restoreFormData(formData);
+  setTimeout(() => { exportPDF(); setTimeout(() => restoreFormData(current), 2000); }, 300);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   NAVIGATION
+   ───────────────────────────────────────────────────────────── */
+const SECTIONS = ['preamble','purpose','requirements','institutional','dlpolicy','programme','courses','delivery'];
+let done = new Set();
+
+function show(id, navEl) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('sec-'+id)?.classList.add('active');
+  navEl?.classList.add('active');
+  if (id==='export') buildChecklist();
+  if (id==='admin') loadAdminData();
+  window.scrollTo(0, 0);
+}
+
+function next(cur, nxt) {
+  done.add(cur);
+  document.querySelector(`[data-sec="${cur}"]`)?.classList.add('done');
+  const nEl = document.querySelector(`[data-sec="${nxt}"]`) || document.querySelector(`[onclick*="'${nxt}'"]`);
+  show(nxt, nEl);
+  saveToSupabase();
+  updateProgress();
+}
+function prev(cur, prv) {
+  show(prv, document.querySelector(`[data-sec="${prv}"]`));
+}
+
+function updateProgress() {
+  const pct = Math.round((done.size / SECTIONS.length) * 100);
+  document.getElementById('pbar').style.width = pct + '%';
+  document.getElementById('pct').textContent = pct + '%';
+}
+
+function updateStatus() {
+  const card = document.getElementById('app-status-card');
+  if (!card) return;
+  const pct = Math.round((done.size / SECTIONS.length) * 100);
+  card.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:2px;">Application Progress</div>
+        <div style="font-size:12px;color:var(--text-lt);">${done.size} of ${SECTIONS.length} sections completed · ${pct}%</div>
+      </div>
+      <div style="font-size:11px;color:var(--gray);">User: ${currentUser?.email || 'Not logged in'} ${isAdmin ? '· <strong style="color:var(--gold);">Admin</strong>' : ''}</div>
+    </div>
+  `;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   FORM HELPERS
+   ───────────────────────────────────────────────────────────── */
+const defaultPLOs = [
+  'Demonstrate integrated advanced knowledge of ESG principles, sustainability strategy, corporate governance, climate risk management, green finance, and social impact measurement — critically evaluating their application to complex organisational and systemic sustainability challenges across diverse institutional contexts.',
+  'Critically evaluate complex ESG environments, sustainability regulatory landscapes, and climate risk governance challenges — formulating evidence-based sustainability and governance strategies that create sustainable organisational value, investor confidence, and positive environmental and social impact.',
+  'Apply quantitative, qualitative, digital, geospatial, and AI-enabled sustainability analytical tools — including carbon accounting systems, ESG rating frameworks, and impact measurement frameworks — to support strategic sustainability and governance decision making.',
+  'Lead and collaborate ethically and effectively with diverse sustainability and governance stakeholders — communicating complex ESG insights, sustainability strategies, and climate risk assessments clearly in written, oral, and professional formats.',
+  'Design, implement, and evaluate sustainability and governance management solutions for ESG strategy integration, climate risk governance, sustainability reporting, and responsible investment management.',
+  'Critically assess the impact of climate change, biodiversity loss, social inequality, digital transformation, and AI in reshaping contemporary sustainability and governance management practice.',
+  'Design and conduct rigorous, ethical, and methodologically sound independent research addressing relevant sustainability governance, ESG management, or social impact problems.',
+  'Produce and translate sustainability and governance research outputs into actionable strategic recommendations and evidence-based insights that contribute to knowledge and professional practice.',
+];
+
+const defaultCourses = {
+  y1s1:[['MSC 801','Principles of Management and Organisational Behaviour','3','Core'],['MSC 802','Global Business Economics','3','Core'],['MSSG 803','ESG Strategy and Leadership','3','Core'],['MSSG 804','Social Impact and Stakeholder Governance','3','Core'],['MBA 805','Applied AI in Business','3','Core']],
+  y1s2:[['MBA 806','Scientific Writing and Business Communication','3','Core'],['MSSG 811','Climate Risk and Net-Zero Strategy','3','Mandatory'],['MSSG 812','Sustainable Finance and Responsible Investment','3','Mandatory'],['MSSG 813','Circular Economy and Sustainable Business','3','Mandatory'],['MSSG 814','Smart Cities and Urban Sustainability','3','Mandatory']],
+  y2s1:[['MSSG 815','AI and Digital ESG Management','3','Mandatory'],['MSC 816','Advanced Qualitative and Quantitative Research Methods','3','Research'],['MSC 881','Seminar I','3','Research'],['MSC 899','Thesis','12','Research']],
+  y2s2:[['MSC 882','Seminar II','3','Research'],['MSC 899A','Thesis (Continuation)','12','Research']],
+};
+const defaultElectives = [['MSC 821','Data Analytics for Managers','3'],['MSC 822','Global Business Strategy','3'],['MSC 823','Climate Finance for Emerging Economies','3'],['MSC 824','Global Supply Chain and Logistics Management','3'],['MSC 825','Adaptive Leadership in Africa','3']];
+
+function addPLO(txt='') {
+  const c = document.getElementById('plo-container');
+  const n = c.children.length + 1;
+  const d = document.createElement('div'); d.className = 'rep-item';
+  d.innerHTML = `<div class="rep-hdr">PLO ${n}</div><button class="del" onclick="this.parentElement.remove()">✕</button><textarea rows="3" placeholder="Programme Learning Outcome ${n}...">${txt}</textarea>`;
+  c.appendChild(d);
+}
+
+function addCourse(tid, code='', title='', credits='3', type='Core') {
+  const tbody = document.getElementById(tid);
+  const tr = document.createElement('tr');
+  const types = ['Core','Mandatory','Elective','Research'];
+  const opts = types.map(t => `<option${t===type?' selected':''}>${t}</option>`).join('');
+  tr.innerHTML = `<td><input type="text" value="${code}" style="width:85px"></td><td><input type="text" value="${title}" style="width:100%;min-width:220px;"></td><td><input type="number" value="${credits}" style="width:50px"></td><td><select style="width:90px">${opts}</select></td><td><button class="del" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function addElective(code='', title='', credits='3') {
+  const tbody = document.getElementById('electives');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input type="text" value="${code}" style="width:85px"></td><td><input type="text" value="${title}" style="width:100%;min-width:220px;"></td><td><input type="number" value="${credits}" style="width:50px"></td><td><button class="del" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function addEnrollRow(centre='', vals=[]) {
+  const tbody = document.getElementById('enroll-body');
+  const v = (i) => vals[i] || '0';
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><input type="text" value="${centre}" style="width:130px"></td>
+    <td><input type="number" class="ef" value="${v(0)}" style="width:45px" min="0"></td><td><input type="number" class="em" value="${v(1)}" style="width:45px" min="0"></td><td class="et">0</td>
+    <td><input type="number" class="ef" value="${v(3)}" style="width:45px" min="0"></td><td><input type="number" class="em" value="${v(4)}" style="width:45px" min="0"></td><td class="et">0</td>
+    <td><input type="number" class="ef" value="${v(6)}" style="width:45px" min="0"></td><td><input type="number" class="em" value="${v(7)}" style="width:45px" min="0"></td><td class="et">0</td>
+    <td><button class="del" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function addStaff(vals=[]) {
+  const c = document.getElementById('staff-container');
+  const d = document.createElement('div'); d.className = 'rep-item';
+  const v = (i) => vals[i] || '';
+  d.innerHTML = `<button class="del" onclick="this.parentElement.remove()">✕</button>
+    <div class="row c3">
+      <div class="fg"><label>Name</label><input type="text" value="${v(0)}" placeholder="Prof./Dr./Mr./Mrs."></div>
+      <div class="fg"><label>Category</label><select><option>Teaching Staff (HQ)</option><option>Facilitator/Tutor</option><option>Administrative Staff</option><option>Support Staff</option></select></div>
+      <div class="fg"><label>DL Centre</label><input type="text" value="${v(2)}" placeholder="e.g. Cape Coast"></div>
+    </div>
+    <div class="row c3">
+      <div class="fg"><label>Gender</label><select><option value="M"${v(3)==='M'?' selected':''}>Male</option><option value="F"${v(3)==='F'?' selected':''}>Female</option></select></div>
+      <div class="fg"><label>Highest Qualification</label><input type="text" value="${v(4)}" placeholder="e.g. PhD Finance, 2014, Kenya"></div>
+      <div class="fg"><label>Rank / DL Experience</label><input type="text" value="${v(5)}" placeholder="e.g. Full Professor / 21 years"></div>
+    </div>
+    <div class="row c3">
+      <div class="fg"><label>Area of Specialization</label><input type="text" value="${v(6)}" placeholder="e.g. Finance"></div>
+      <div class="fg"><label>Courses Taught</label><input type="text" value="${v(7)}" placeholder="e.g. Academic Writing"></div>
+      <div class="fg"><label>Workload (hrs/week)</label><input type="text" value="${v(8)}" placeholder="e.g. 6 credit hours"></div>
+    </div>`;
+  c.appendChild(d);
+}
+
+function updateEnrollTotals() {
+  const rows = document.querySelectorAll('#enroll-body tr');
+  let t = Array(9).fill(0);
+  rows.forEach(row => {
+    const fems = row.querySelectorAll('.ef');
+    const males = row.querySelectorAll('.em');
+    const tots = row.querySelectorAll('.et');
+    fems.forEach((f,i) => {
+      const fv = parseInt(f.value)||0, mv = parseInt(males[i].value)||0;
+      if (tots[i]) tots[i].textContent = fv+mv;
+      t[i*3] += fv; t[i*3+1] += mv; t[i*3+2] += fv+mv;
+    });
+  });
+  ['ty1f','ty1m','ty1t','ty2f','ty2m','ty2t','ty3f','ty3m','ty3t'].forEach((id,i) => {
+    const el = document.getElementById(id); if(el) el.textContent = t[i];
+  });
+}
+
+function clearForm() {
+  if (!confirm('Clear all form data? Your cloud save will not be deleted — you can reload it by refreshing.')) return;
+  document.querySelectorAll('input[id], select[id], textarea[id]').forEach(el => { el.value = ''; });
+  document.getElementById('plo-container').innerHTML = '';
+  document.getElementById('staff-container').innerHTML = '';
+  ['y1s1','y1s2','y2s1','y2s2','electives'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=''; });
+  showToast('Form cleared.', '');
+}
+
+/* ─────────────────────────────────────────────────────────────
+   CHECKLIST
+   ───────────────────────────────────────────────────────────── */
+function buildChecklist() {
+  const items = [
+    ['Institutional DL Context Statement','p_context'],['Primary Purpose Statement','pu_primary'],
+    ['Institution Name','i_name'],['Contact Name','i_contact_name'],['Contact Email','i_contact_email'],
+    ['DL Mission Integration','dl_mission'],['Programme Title','pr_title'],['Programme Goals','pr_goals'],
+    ['Programme Objectives','pr_objectives'],['Entry Requirements','pr_entry_a'],
+    ['Mode of Delivery','d_delivery'],['ICT Infrastructure','d_tech'],
+    ['Formative Assessment','d_formative'],['Summative Assessment','d_summative'],['Academic Integrity','d_integrity'],
+  ];
+  const c = document.getElementById('checklist'); c.innerHTML = '';
+  items.forEach(([label, fid]) => {
+    const el = document.getElementById(fid);
+    const ok = el && el.value.trim().length > 10;
+    const d = document.createElement('div');
+    d.className = 'chk-item ' + (ok ? 'done' : 'miss');
+    d.innerHTML = `<span>${ok ? '✅' : '⚠️'}</span><span>${label}</span>`;
+    c.appendChild(d);
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────
+   HELPERS
+   ───────────────────────────────────────────────────────────── */
+function g(id) { const e=document.getElementById(id); return e?e.value:''; }
+
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show' + (type?' '+type:'');
+  setTimeout(()=>{ t.className='toast'; }, 3500);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   AUTO-SAVE (every 30s)
+   ───────────────────────────────────────────────────────────── */
+let saveTimer;
+document.addEventListener('input', () => { clearTimeout(saveTimer); saveTimer = setTimeout(saveToSupabase, 30000); });
+document.addEventListener('input', e => {
+  if (e.target.classList.contains('ef') || e.target.classList.contains('em')) updateEnrollTotals();
+});
+
+/* ─────────────────────────────────────────────────────────────
+   PDF EXPORT
+   ───────────────────────────────────────────────────────────── */
+async function exportPDF() {
+  showToast('Generating PDF...', '');
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    const pw=210, ph=297, mg=18, cw=pw-mg*2;
+    let y = mg;
+    const navy=[0,51,102], gold=[207,181,59], white=[255,255,255], dark=[26,38,64], lgray=[245,247,250];
+
+    const newPage = (need=10) => {
+      if (y+need > ph-mg) { doc.addPage(); y=mg; return true; } return false;
+    };
+    const text = (str, x, yy, opts={}) => {
+      doc.setFontSize(opts.sz||10); doc.setFont('helvetica', opts.bold?'bold':'normal');
+      doc.setTextColor(...(opts.color||dark));
+      const lines = doc.splitTextToSize(String(str||''), opts.mw||cw);
+      doc.text(lines, x, yy);
+      return lines.length * ((opts.sz||10)*0.38 + 1.5);
+    };
+
+    // Header
+    doc.setFillColor(...navy); doc.rect(0,0,pw,40,'F');
+    doc.setFillColor(...gold); doc.rect(0,40,pw,1.5,'F');
+    doc.setFontSize(12); doc.setFont('helvetica','bold'); doc.setTextColor(...white);
+    doc.text('GHANA TERTIARY EDUCATION COMMISSION (GTEC)', pw/2, 11, {align:'center'});
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.text('INSTRUMENT FOR ASSESSING DISTANCE EDUCATION PROGRAMMES FOR ACCREDITATION', pw/2, 18, {align:'center'});
+    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...gold);
+    doc.text('GTEC/INFO.A.7', pw/2, 28, {align:'center'});
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(200,200,200);
+    doc.text('© GTEC 2020', pw/2, 36, {align:'center'});
+    y = 48;
+
+    // Programme title block
+    doc.setFillColor(240,244,252); doc.rect(mg,y,cw,16,'F');
+    doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
+    doc.text(g('pr_title')||'Programme Title', pw/2, y+7, {align:'center'});
+    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(80,80,80);
+    doc.text(g('i_name')||'Institution Name', pw/2, y+13, {align:'center'});
+    y += 22;
+
+    const secHead = (title) => {
+      newPage(12);
+      doc.setFillColor(...navy); doc.rect(mg,y,cw,7,'F');
+      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...white);
+      doc.text(title, mg+4, y+5); y += 11;
+    };
+    const subHead = (title) => {
+      newPage(8);
+      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
+      doc.text(title, mg, y); y += 4;
+    };
+    const field = (label, val) => {
+      newPage(10);
+      doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
+      doc.text(label+':', mg, y); y += 3.5;
+      if (val && val.trim()) {
+        doc.setFont('helvetica','normal'); doc.setTextColor(...dark);
+        const lines = doc.splitTextToSize(val, cw);
+        doc.text(lines, mg, y); y += lines.length*3.8 + 2;
+      } else y += 2;
+    };
+
+    secHead('1. PREAMBLE');
+    field('Institutional Statement on DL Context', g('p_context'));
+    field('Technology & Internet Integration', g('p_tech'));
+
+    secHead('2. PURPOSE');
+    field('Primary Purpose', g('pu_primary'));
+    field('Objective 1: GTEC Approval', g('pu_obj1'));
+    field('Objective 2: DL in Tertiary System', g('pu_obj2'));
+    field('Objective 5: Institutional Policies', g('pu_obj5'));
+
+    secHead('3. REQUIREMENTS FOR ACCREDITATION');
+    const r1=document.querySelector('input[name=r_c1]:checked');
+    field('Condition 1 — Conventional Accreditation', (r1?r1.value.toUpperCase():'') + '. ' + g('r_c1_detail'));
+    field('Condition 3 — Field Visit Readiness', g('r_c3_detail'));
+
+    doc.addPage(); y=mg;
+    secHead('4. INSTITUTIONAL DETAILS');
+    field('Name of Institution', g('i_name'));
+    field('Date of Establishment', g('i_estab'));
+    field('Type of Institution', g('i_type'));
+    field('Contact Person', g('i_contact_name') + ' — ' + g('i_contact_title'));
+    field('Telephone', g('i_contact_tel'));
+    field('Email', g('i_contact_email'));
+
+    secHead('5. DISTANCE LEARNING POLICY');
+    field('Mission & Philosophy Integration', g('dl_mission'));
+    field('Technology Policy Statement', g('dl_tech'));
+    field('Leadership & Governance', g('dl_gov'));
+
+    doc.addPage(); y=mg;
+    secHead('6. DETAILS OF PROGRAMME');
+    field('Programme Title', g('pr_title'));
+    field('Level of Programme', g('pr_level'));
+    field('Related Regular Programme(s)', g('pr_related_prog'));
+    field('Expected Duration (Full-time)', g('pr_duration'));
+    field('Time Limit', g('pr_timelimit'));
+    field('Total Credits', g('cr_total'));
+    field('Minimum CGPA', g('cr_cgpa'));
+    subHead('Programme Goals (Aims):');
+    field('', g('pr_goals'));
+    subHead('Programme Learning Outcomes:');
+    document.querySelectorAll('#plo-container textarea').forEach((ta,i) => {
+      if(ta.value.trim()) field('PLO'+(i+1), ta.value);
+    });
+    field('Programme Objectives', g('pr_objectives'));
+    field('Entry Requirements (First Degree)', g('pr_entry_a'));
+    field('Duration / Time Limit', g('pr_duration') + ' / ' + g('pr_timelimit'));
+    field('Programme Owner', g('pr_owner'));
+
+    // Enrollment table
+    newPage(60);
+    secHead('6.10. PROJECTED STUDENT ENROLLMENT (TABLE 1)');
+    const hdrs=['Centre','Y1-F','Y1-M','Y1-T','Y2-F','Y2-M','Y2-T','Y3-F','Y3-M','Y3-T'];
+    const cws=[38,12,12,14,12,12,14,12,12,14];
+    let tx=mg;
+    hdrs.forEach((h,i)=>{ doc.setFillColor(...navy); doc.rect(tx,y,cws[i],6,'F'); doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(...white); doc.text(h,tx+1,y+4); tx+=cws[i]; }); y+=6;
+    document.querySelectorAll('#enroll-body tr').forEach((row,ri)=>{
+      newPage(6); if(ri%2===0){doc.setFillColor(...lgray);doc.rect(mg,y,cw,5.5,'F');}
+      const ins=row.querySelectorAll('input'); tx=mg;
+      [...ins].forEach((inp,i)=>{ if(i<10){doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.setTextColor(...dark);doc.text(String(inp.value||'').substring(0,16),tx+1,y+3.8);tx+=cws[i]||12;} }); y+=5.5;
+    }); y+=8;
+
+    // Course tables
+    doc.addPage(); y=mg;
+    secHead('7. COURSE STRUCTURE');
+    const semLabels = {'y1s1':'Year 1: Semester 1','y1s2':'Year 1: Semester 2','y2s1':'Year 2: Semester 1','y2s2':'Year 2: Semester 2','electives':'Elective Courses'};
+    const semCws = [22,cw-22-18-18,18,18];
+    Object.entries(semLabels).forEach(([tid,label])=>{
+      newPage(40); subHead(label); y+=2;
+      ['Code','Title','Credits','Type'].forEach((h,i)=>{ const xs=[mg,mg+22,mg+22+semCws[1],mg+22+semCws[1]+18]; doc.setFillColor(220,232,248); doc.rect(xs[i],y,semCws[i],5.5,'F'); doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(...navy); doc.text(h,xs[i]+1,y+4); }); y+=5.5;
+      const rows=document.querySelectorAll('#'+tid+' tr');
+      rows.forEach((row,ri)=>{
+        const ins=row.querySelectorAll('input,select'); if(!ins[0])return;
+        newPage(6); if(ri%2===0){doc.setFillColor(...lgray);doc.rect(mg,y,cw,5.5,'F');}
+        const xs=[mg,mg+22,mg+22+semCws[1],mg+22+semCws[1]+18];
+        [[...ins][0]?.value||'',[...ins][1]?.value||'',[...ins][2]?.value||'',[...ins][3]?.value||''].forEach((v2,i)=>{ doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.setTextColor(...dark);doc.text(v2.substring(0,i===1?60:14),xs[i]+1,y+3.8); }); y+=5.5;
+      }); y+=8;
+    });
+
+    doc.addPage(); y=mg;
+    secHead('8. DELIVERY & MANAGEMENT');
+    field('Mode of Delivery', g('d_delivery'));
+    field('LMS Platform', g('d_lms'));
+    field('Physical Infrastructure', g('d_physical'));
+    field('ICT Infrastructure', g('d_tech'));
+    field('Formative Assessment', g('d_formative'));
+    field('Summative Assessment', g('d_summative'));
+    field('Academic Integrity', g('d_integrity'));
+
+    // Page numbers
+    const total = doc.internal.getNumberOfPages();
+    for(let p=1;p<=total;p++){
+      doc.setPage(p); doc.setFillColor(...navy); doc.rect(0,ph-11,pw,11,'F');
+      doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...white);
+      doc.text(g('i_name')+' — GTEC/INFO.A.7 Distance Education Accreditation', mg, ph-4);
+      doc.text('Page '+p+' of '+total, pw-mg, ph-4, {align:'right'});
+    }
+
+    doc.save('GTEC_INFO_A7_'+(g('i_name')||'UCC').replace(/\s+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.pdf');
+    showToast('PDF downloaded!', 'ok');
+  } catch(e) {
+    console.error(e); showToast('PDF error: '+e.message, 'err');
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   WORD EXPORT
+   ───────────────────────────────────────────────────────────── */
+async function exportWord() {
+  showToast('Generating Word document...', '');
+  try {
+    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+            AlignmentType, WidthType, BorderStyle, ShadingType, Header, Footer, PageNumber } = docx;
+    const navy='003366', gold='CFB53B', white='FFFFFF';
+    const b={style:BorderStyle.SINGLE,size:1,color:'CCCCCC'}, bords={top:b,bottom:b,left:b,right:b};
+    const nb={style:BorderStyle.SINGLE,size:4,color:navy}, nbords={top:nb,bottom:nb,left:nb,right:nb};
+
+    const h1=(txt)=>new Paragraph({ children:[new TextRun({text:txt,bold:true,size:22,color:white,font:'Arial'})], shading:{fill:navy,type:ShadingType.CLEAR}, spacing:{before:300,after:120}, indent:{left:120,right:120} });
+    const h2=(txt)=>new Paragraph({ children:[new TextRun({text:txt,bold:true,size:20,color:navy,font:'Arial'})], spacing:{before:200,after:80}, border:{bottom:{style:BorderStyle.SINGLE,size:3,color:gold}} });
+    const fp=(label,val)=>new Paragraph({ children:[new TextRun({text:label+': ',bold:true,size:18,color:navy,font:'Arial'}),new TextRun({text:val||'N/A',size:18,font:'Arial'})], spacing:{after:80} });
+    const bp=(txt,opts={})=>new Paragraph({ children:[new TextRun({text:txt||'',size:opts.sz||18,font:'Arial',color:opts.color||'1a2640'})], spacing:{after:opts.after||120} });
+
+    const courseTable=(tid)=>{
+      const rows=[new TableRow({children:['Code','Course Title','Credits','Type'].map((h,i)=>new TableCell({children:[new Paragraph({children:[new TextRun({text:h,bold:true,size:16,color:white,font:'Arial'})]})],shading:{fill:navy,type:ShadingType.CLEAR},width:{size:[1400,4800,800,1000][i],type:WidthType.DXA},borders:nbords,margins:{top:60,bottom:60,left:100,right:100}})),tableHeader:true})];
+      document.querySelectorAll('#'+tid+' tr').forEach((row,ri)=>{
+        const ins=row.querySelectorAll('input,select'); if(!ins[0])return;
+        const fill=ri%2===0?'EAF2FB':white;
+        rows.push(new TableRow({children:[[...ins].slice(0,4).map((inp,i)=>new TableCell({children:[new Paragraph({children:[new TextRun({text:inp.value||'',size:16,font:'Arial'})]})],shading:{fill,type:ShadingType.CLEAR},width:{size:[1400,4800,800,1000][i],type:WidthType.DXA},borders:bords,margins:{top:60,bottom:60,left:100,right:100}}))]})});
+      });
+      return new Table({width:{size:8000,type:WidthType.DXA},columnWidths:[1400,4800,800,1000],rows});
+    };
+
+    const ploParas=[];
+    document.querySelectorAll('#plo-container textarea').forEach((ta,i)=>{
+      if(ta.value.trim()) ploParas.push(new Paragraph({children:[new TextRun({text:`PLO${i+1}: `,bold:true,size:18,color:navy,font:'Arial'}),new TextRun({text:ta.value,size:18,font:'Arial'})],spacing:{after:100},indent:{left:360}}));
+    });
+
+    const doc2=new Document({
+      styles:{default:{document:{run:{font:'Arial',size:18}}}},
+      sections:[{
+        properties:{page:{size:{width:11906,height:16838},margin:{top:1440,right:1440,bottom:1440,left:1440}}},
+        headers:{default:new Header({children:[new Paragraph({children:[new TextRun({text:`GTEC/INFO.A.7 — ${g('i_name')||'University of Cape Coast'}`,size:14,color:'888888',font:'Arial'})],alignment:AlignmentType.RIGHT,border:{bottom:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'}}})]})},
+        footers:{default:new Footer({children:[new Paragraph({children:[new TextRun({text:`${g('pr_title')||'Programme'} — Distance Education Accreditation — `,size:14,color:'888888',font:'Arial'}),new TextRun({children:[PageNumber.CURRENT],size:14,color:'888888'})],border:{top:{style:BorderStyle.SINGLE,size:1,color:'CCCCCC'}}})]})},
+        children:[
+          new Paragraph({children:[new TextRun({text:'GHANA TERTIARY EDUCATION COMMISSION (GTEC)',bold:true,size:28,color:white,font:'Arial'})],alignment:AlignmentType.CENTER,shading:{fill:navy,type:ShadingType.CLEAR}}),
+          new Paragraph({children:[new TextRun({text:'INSTRUMENT FOR ASSESSING DISTANCE EDUCATION PROGRAMMES FOR ACCREDITATION AND QUALITY ASSURANCE',size:20,color:white,font:'Arial'})],alignment:AlignmentType.CENTER,shading:{fill:navy,type:ShadingType.CLEAR}}),
+          new Paragraph({children:[new TextRun({text:'GTEC/INFO.A.7',bold:true,size:22,color:gold,font:'Arial'})],alignment:AlignmentType.CENTER,shading:{fill:navy,type:ShadingType.CLEAR},spacing:{after:240}}),
+          new Paragraph({children:[new TextRun({text:g('pr_title')||'Programme Title',bold:true,size:26,color:navy,font:'Arial'})],alignment:AlignmentType.CENTER,spacing:{before:240,after:60},border:{bottom:{style:BorderStyle.SINGLE,size:4,color:gold}}}),
+          new Paragraph({children:[new TextRun({text:g('i_name')||'Institution Name',size:20,color:'555555',font:'Arial'})],alignment:AlignmentType.CENTER,spacing:{before:60,after:360}}),
+          h1('1. PREAMBLE'),bp(g('p_context')),bp(g('p_tech')),
+          h1('2. PURPOSE'),bp(g('pu_primary')),fp('Objective 1',g('pu_obj1')),fp('Objective 5',g('pu_obj5')),
+          h1('3. REQUIREMENTS FOR ACCREDITATION'),fp('Condition 1 — Conventional Accreditation',g('r_c1_detail')),fp('Condition 3 — Field Visit Readiness',g('r_c3_detail')),
+          h1('4. INSTITUTIONAL DETAILS'),fp('Name of Institution',g('i_name')),fp('Date of Establishment',g('i_estab')),fp('Type',g('i_type')),fp('Contact Person',`${g('i_contact_name')} — ${g('i_contact_title')}`),fp('Telephone',g('i_contact_tel')),fp('Email',g('i_contact_email')),
+          h1('5. DISTANCE LEARNING POLICY'),h2('5.1 Mission & Philosophy Integration'),bp(g('dl_mission')),h2('5.2 Technology Policy'),bp(g('dl_tech')),h2('5.3 Leadership & Governance'),bp(g('dl_gov')),
+          h1('6. DETAILS OF PROGRAMME'),fp('Programme Title',g('pr_title')),fp('Level',g('pr_level')),fp('Duration',g('pr_duration')),fp('Total Credits',g('cr_total')),fp('Minimum CGPA',g('cr_cgpa')),
+          h2('6.1 Programme Goals'),bp(g('pr_goals')),h2('6.2 Programme Learning Outcomes'),...ploParas,h2('6.3 Objectives'),bp(g('pr_objectives')),h2('6.4 Entry Requirements'),bp(g('pr_entry_a')),
+          h1('7. COURSE STRUCTURE'),h2('Year 1: Semester 1'),courseTable('y1s1'),bp(''),h2('Year 1: Semester 2'),courseTable('y1s2'),bp(''),h2('Year 2: Semester 1'),courseTable('y2s1'),bp(''),h2('Year 2: Semester 2'),courseTable('y2s2'),bp(''),h2('Elective Courses'),courseTable('electives'),bp(''),
+          h1('8. DELIVERY & MANAGEMENT'),fp('Mode of Delivery',g('d_delivery')),fp('LMS Platform',g('d_lms')),h2('8.1 Physical Infrastructure'),bp(g('d_physical')),h2('8.2 ICT Infrastructure'),bp(g('d_tech')),h2('8.3 Formative Assessment'),bp(g('d_formative')),h2('8.4 Summative Assessment'),bp(g('d_summative')),h2('8.5 Academic Integrity'),bp(g('d_integrity')),
+        ]
+      }]
+    });
+    const buf=await Packer.toBuffer(doc2);
+    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download='GTEC_INFO_A7_'+(g('i_name')||'UCC').replace(/\s+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.docx'; a.click(); URL.revokeObjectURL(url);
+    showToast('Word document downloaded!', 'ok');
+  } catch(e){ console.error(e); showToast('Word error: '+e.message,'err'); }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   INIT
+   ───────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', async () => {
+  // Populate defaults
+  defaultPLOs.forEach(p => addPLO(p));
+  Object.entries(defaultCourses).forEach(([tid,rows]) => rows.forEach(r => addCourse(tid,...r)));
+  defaultElectives.forEach(r => addElective(...r));
+  addStaff(['Prof. Siaw Frimpong','Teaching Staff (HQ)','CoDE, Cape Coast','M','PhD Finance, 2014, Kenya','Full Professor / 21 years','Finance','Academic Writing','']);
+  addStaff(['Prof. Anokye M. Adam','Teaching Staff (HQ)','Cape Coast','M','PhD Finance, 2015, University of Venda','Full Professor / 15 years','Finance','Quantitative Data Analysis','6 credit hours']);
+  addStaff(['Dr. Paul Mensah Agyei','Facilitator/Tutor','Koforidua','M','PhD Marketing','Senior Lecturer','Marketing','Research Methods','3 credit hours']);
+  updateEnrollTotals();
+
+  // Check if already logged in (session persists)
+  if (sbReady) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session?.user) {
+      await onLogin(session.user);
+    }
+    // Listen for auth changes
+    sb.auth.onAuthStateChange((_event, session) => {
+      if (session?.user && !currentUser) onLogin(session.user);
+    });
+  }
+});
+</script>
+</body>
+</html>
