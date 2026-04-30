@@ -3,7 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>GTEC Accreditation Portal — UCC</title>
+<script>
+  /* Force reload if cached version is older than this build */
+  const BUILD = '202604300940';
+  const cached = sessionStorage.getItem('gtec_build');
+  if (cached && cached !== BUILD) {
+    sessionStorage.setItem('gtec_build', BUILD);
+    window.location.reload(true);
+  } else {
+    sessionStorage.setItem('gtec_build', BUILD);
+  }
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
 
 <!-- ── Supabase SDK (CDN — safe for GitHub Pages) ── -->
@@ -494,35 +508,6 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
 </head>
 <body>
 
-<!-- ══════════════════════════════════════════════════
-     CONFIG SCREEN (shown only when keys not set)
-══════════════════════════════════════════════════ -->
-<div id="config-screen" style="display:none;min-height:100vh;align-items:center;justify-content:center;background:linear-gradient(135deg,#001f42,#003366 55%,#1a5276);padding:20px;">
-  <div style="background:white;border-radius:20px;padding:44px;width:100%;max-width:480px;box-shadow:0 24px 80px rgba(0,0,0,.35);">
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px;">
-      <div style="width:48px;height:48px;background:linear-gradient(135deg,#003366,#004a8f);border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:16px;font-weight:900;color:#CFB53B;">UCC</div>
-      <div><div style="font-family:'Playfair Display',serif;font-size:15px;color:#003366;font-weight:700;">GTEC Accreditation Portal</div><div style="font-size:11px;color:#8896a8;">One-time Supabase configuration</div></div>
-    </div>
-    <div style="background:#fff3cd;border:1px solid #CFB53B;border-radius:8px;padding:12px 14px;font-size:12px;color:#7d6608;margin-bottom:20px;">
-      ⚙️ <strong>Admin setup.</strong> This screen is accessible only via the secret setup URL. Enter your Supabase credentials — saved to this browser only. Regular users never see this screen.
-    </div>
-    <div style="display:flex;flex-direction:column;gap:14px;">
-      <div id="cfg-error" style="background:#fde8e8;border:1px solid #f5c6c6;color:#c0392b;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:600;display:none;"></div>
-      <div>
-        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#003366;display:block;margin-bottom:5px;">Supabase Project URL</label>
-        <input type="text" id="cfg-url" placeholder="https://xxxxxxxxxxxx.supabase.co" style="width:100%;padding:10px 13px;border:1.5px solid #dce3ef;border-radius:8px;font-family:inherit;font-size:13px;" oninput="this.style.borderColor='#dce3ef'">
-        <div style="font-size:11px;color:#8896a8;margin-top:3px;">Supabase dashboard → Settings → API → Project URL</div>
-      </div>
-      <div>
-        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#003366;display:block;margin-bottom:5px;">Supabase Anon / Public Key</label>
-        <input type="text" id="cfg-anon" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style="width:100%;padding:10px 13px;border:1.5px solid #dce3ef;border-radius:8px;font-family:inherit;font-size:13px;" oninput="this.style.borderColor='#dce3ef'">
-        <div style="font-size:11px;color:#8896a8;margin-top:3px;">Supabase dashboard → Settings → API → anon public key</div>
-      </div>
-      <button onclick="saveConfig()" style="background:linear-gradient(135deg,#003366,#004a8f);color:white;border:none;padding:12px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px;">Save &amp; Connect →</button>
-    </div>
-    <div style="text-align:center;margin-top:16px;font-size:11px;color:#8896a8;">🔒 Credentials stored locally in your browser only</div>
-  </div>
-</div>
 
 <!-- ══════════════════════════════════════════════════
      AUTH SCREEN
@@ -587,7 +572,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
         <div class="h-logo">UCC</div>
         <div>
           <div class="h-title">GTEC Accreditation Portal</div>
-          <div class="h-sub">Ghana Tertiary Education Commission · GTEC/INFO.A.7</div>
+          <div class="h-sub">Ghana Tertiary Education Commission · GTEC/INFO.A.7 · <span style="opacity:.5;font-size:9px;">v202604300940</span></div>
         </div>
       </div>
       <div class="header-right">
@@ -1256,15 +1241,19 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
    3. Paste them below
    4. See SUPABASE_SETUP.md for SQL to run in the SQL editor
    ───────────────────────────────────────────────────────────── */
-/* ── Load credentials from localStorage (set via config screen) ── */
-const SUPABASE_URL  = localStorage.getItem('sb_url')  || 'YOUR_SUPABASE_PROJECT_URL';
-const SUPABASE_ANON = localStorage.getItem('sb_anon') || 'YOUR_SUPABASE_ANON_KEY';
+/* ══════════════════════════════════════════════════════════════
+   SUPABASE CREDENTIALS — edit these two lines, then upload to GitHub
+   URL:  Supabase dashboard → Settings → API → Project URL
+   KEY:  Supabase dashboard → Settings → API → anon/public key
+   ══════════════════════════════════════════════════════════════ */
+const SUPABASE_URL  = 'https://bhxkxpqtlqhhlyowgbmn.supabase.co';
+const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY_HERE'; // ← REPLACE THIS before uploading
 
 /* Admin email list — these users see all submissions */
 const ADMIN_EMAILS  = [
   'eaidoo@ucc.edu.gh',
-  'j.deikummah@ucc.edu.gh',
-  'jtkwarteng@ucc.edu.gh',
+  'admin@ucc.edu.gh',
+  'gtec.portal@ucc.edu.gh',
   // Add more admin emails here
 ];
 
@@ -1275,36 +1264,13 @@ const ADMIN_EMAILS  = [
    ───────────────────────────────────────────────────────────── */
 let sb, currentUser, isAdmin = false;
 
-function saveConfig() {
-  const url  = document.getElementById('cfg-url').value.trim();
-  const anon = document.getElementById('cfg-anon').value.trim();
-  const errEl = document.getElementById('cfg-error');
-  errEl.style.display = 'none';
-  if (!url || !url.startsWith('https://')) {
-    document.getElementById('cfg-url').style.borderColor = '#c0392b';
-    errEl.textContent = '⚠ Project URL must start with https://'; errEl.style.display = 'block'; return;
-  }
-  if (!anon || !anon.startsWith('eyJ')) {
-    document.getElementById('cfg-anon').style.borderColor = '#c0392b';
-    errEl.textContent = '⚠ Anon key must start with eyJ...'; errEl.style.display = 'block'; return;
-  }
-  localStorage.setItem('sb_url', url);
-  localStorage.setItem('sb_anon', anon);
-  // Reload without ?setup param so URL is clean
-  window.location.href = window.location.pathname;
-}
-
 function needsConfig() {
-  const url  = localStorage.getItem('sb_url')  || '';
-  const anon = localStorage.getItem('sb_anon') || '';
-  return !url.startsWith('https://') || !anon.startsWith('eyJ');
+  return !SUPABASE_URL.startsWith('https://') || !SUPABASE_ANON.startsWith('eyJ');
 }
 
 function initSupabase() {
-  const url  = localStorage.getItem('sb_url')  || SUPABASE_URL;
-  const anon = localStorage.getItem('sb_anon') || SUPABASE_ANON;
   try {
-    sb = window.supabase.createClient(url, anon);
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
     return true;
   } catch(e) {
     console.warn('Supabase init failed:', e.message);
@@ -1529,10 +1495,35 @@ async function loadApplication(appId, rowData) {
     formData = data?.form_data;
   }
   currentAppId = appId;
-  clearForm(true); // silent clear
-  if (formData) restoreFormData(formData);
+  clearForm(true);
+  if (formData) {
+    restoreFormData(formData);
+    restoreProgressFromData(formData);
+  }
   highlightActiveApp(appId);
   showToast('Application loaded.', 'ok');
+}
+
+function restoreProgressFromData(formData) {
+  // Re-mark sections as done if they have saved content
+  const sectionFields = {
+    'preamble':     ['p_context'],
+    'purpose':      ['pu_primary'],
+    'requirements': ['r_c1_detail'],
+    'institutional':['i_name','i_contact_name'],
+    'dlpolicy':     ['dl_mission'],
+    'programme':    ['pr_title','pr_goals'],
+    'courses':      ['cr_total'],
+    'delivery':     ['d_delivery'],
+  };
+  Object.entries(sectionFields).forEach(([sec, fields]) => {
+    const hasSomeData = fields.some(f => formData[f] && formData[f].trim().length > 3);
+    if (hasSomeData) {
+      done.add(sec);
+      document.querySelector(`[data-sec="${sec}"]`)?.classList.add('done');
+    }
+  });
+  updateProgress();
 }
 
 async function submitApplication() {
@@ -1673,7 +1664,7 @@ async function adminSendInvite() {
   errEl.classList.remove('show'); okEl.classList.remove('show');
   if (!email) { errEl.textContent='⚠ Email is required.'; errEl.classList.add('show'); return; }
   if (!email.includes('@')) { errEl.textContent='⚠ Enter a valid email address.'; errEl.classList.add('show'); return; }
-  const projectRef = (localStorage.getItem('sb_url')||'').replace('https://','').split('.')[0];
+  const projectRef = SUPABASE_URL.replace('https://','').split('.')[0];
   const dashUrl = projectRef
     ? 'https://supabase.com/dashboard/project/'+projectRef+'/auth/users'
     : 'https://supabase.com/dashboard';
@@ -2223,25 +2214,10 @@ async function exportWord() {
    INIT
    ───────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', async () => {
-  const params = new URLSearchParams(window.location.search);
-  const isSetupMode = params.get('setup') === 'gtec2024';  // secret param
-
-  // Config screen: only if ?setup=gtec2024 in URL
-  if (isSetupMode) {
-    document.getElementById('config-screen').style.display = 'flex';
-    document.getElementById('auth-screen').style.display = 'none';
-    const savedUrl  = localStorage.getItem('sb_url')  || '';
-    const savedAnon = localStorage.getItem('sb_anon') || '';
-    if (savedUrl)  document.getElementById('cfg-url').value  = savedUrl;
-    if (savedAnon) document.getElementById('cfg-anon').value = savedAnon;
-    return;
-  }
-
-  // If not configured and not in setup mode, show "contact admin" message
+  // Show helpful error if credentials not yet updated in the file
   if (needsConfig()) {
-    document.getElementById('auth-screen').style.display = 'flex';
     document.getElementById('login-error').textContent =
-      '⚠ Portal not yet configured. Contact the administrator: eaidoo@ucc.edu.gh';
+      '⚠ Portal credentials not configured. Contact: eaidoo@ucc.edu.gh';
     document.getElementById('login-error').classList.add('show');
     document.getElementById('login-btn').disabled = true;
     return;
@@ -2261,9 +2237,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (session?.user) {
       await onLogin(session.user);
     }
-    // Listen for auth changes
-    sb.auth.onAuthStateChange((_event, session) => {
-      if (session?.user && !currentUser) onLogin(session.user);
+    // Listen for auth state changes (handles token refresh, cross-tab login)
+    sb.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user && !currentUser) {
+        onLogin(session.user);
+      }
+      if (event === 'SIGNED_OUT') {
+        currentUser = null; isAdmin = false;
+        document.getElementById('auth-screen').style.display = 'flex';
+        document.getElementById('app-screen').classList.remove('visible');
+      }
     });
   }
 });
