@@ -1247,7 +1247,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
    KEY:  Supabase dashboard → Settings → API → anon/public key
    ══════════════════════════════════════════════════════════════ */
 const SUPABASE_URL  = 'https://bhxkxpqtlqhhlyowgbmn.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJoeGt4cHF0bHFoaGx5b3dnYm1uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MjA2OTEsImV4cCI6MjA5Mjk5NjY5MX0.DKa04fr8lRYjJosa8lhPCGk87V7xJua-blpdVQ7D9Qg'; // ← REPLACE THIS before uploading
+const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY_HERE'; // ← REPLACE THIS before uploading
 
 /* Admin email list — these users see all submissions */
 const ADMIN_EMAILS  = [
@@ -1982,172 +1982,777 @@ async function exportPDF() {
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-    const pw=210, ph=297, mg=18, cw=pw-mg*2;
+    const pw=210, ph=297, mg=20, cw=pw-mg*2;
     let y = mg;
-    const navy=[0,51,102], gold=[207,181,59], white=[255,255,255], dark=[26,38,64], lgray=[245,247,250];
 
-    const newPage = (need=10) => {
-      if (y+need > ph-mg) { doc.addPage(); y=mg; return true; } return false;
-    };
-    const text = (str, x, yy, opts={}) => {
-      doc.setFontSize(opts.sz||10); doc.setFont('helvetica', opts.bold?'bold':'normal');
-      doc.setTextColor(...(opts.color||dark));
-      const lines = doc.splitTextToSize(String(str||''), opts.mw||cw);
-      doc.text(lines, x, yy);
-      return lines.length * ((opts.sz||10)*0.38 + 1.5);
-    };
+    // ── Colour palette ──────────────────────────────────────────
+    const navy  = [0,51,102];
+    const gold  = [207,181,59];
+    const black = [0,0,0];
+    const white = [255,255,255];
+    const lgray = [240,242,246];
+    const dgray = [80,80,80];
+    const mgray = [150,150,150];
 
-    // Header
-    doc.setFillColor(...navy); doc.rect(0,0,pw,40,'F');
-    doc.setFillColor(...gold); doc.rect(0,40,pw,1.5,'F');
-    doc.setFontSize(12); doc.setFont('helvetica','bold'); doc.setTextColor(...white);
-    doc.text('GHANA TERTIARY EDUCATION COMMISSION (GTEC)', pw/2, 11, {align:'center'});
-    doc.setFontSize(9); doc.setFont('helvetica','normal');
-    doc.text('INSTRUMENT FOR ASSESSING DISTANCE EDUCATION PROGRAMMES FOR ACCREDITATION', pw/2, 18, {align:'center'});
-    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...gold);
-    doc.text('GTEC/INFO.A.7', pw/2, 28, {align:'center'});
-    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(200,200,200);
-    doc.text('© GTEC 2020', pw/2, 36, {align:'center'});
-    y = 48;
+    // ── Helpers ─────────────────────────────────────────────────
+    function newPage() {
+      doc.addPage(); y = mg;
+      drawPageFooter();
+    }
+    function checkY(need) { if (y + need > ph - 14) newPage(); }
 
-    // Programme title block
-    doc.setFillColor(240,244,252); doc.rect(mg,y,cw,16,'F');
-    doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
-    doc.text(g('pr_title')||'Programme Title', pw/2, y+7, {align:'center'});
-    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(80,80,80);
-    doc.text(g('i_name')||'Institution Name', pw/2, y+13, {align:'center'});
-    y += 22;
-
-    const secHead = (title) => {
-      newPage(12);
-      doc.setFillColor(...navy); doc.rect(mg,y,cw,7,'F');
-      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...white);
-      doc.text(title, mg+4, y+5); y += 11;
-    };
-    const subHead = (title) => {
-      newPage(8);
-      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
-      doc.text(title, mg, y); y += 4;
-    };
-    const field = (label, val) => {
-      newPage(10);
-      doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
-      doc.text(label+':', mg, y); y += 3.5;
-      if (val && val.trim()) {
-        doc.setFont('helvetica','normal'); doc.setTextColor(...dark);
-        const lines = doc.splitTextToSize(val, cw);
-        doc.text(lines, mg, y); y += lines.length*3.8 + 2;
-      } else y += 2;
-    };
-
-    secHead('1. PREAMBLE');
-    field('Institutional Statement on DL Context', g('p_context'));
-    field('Technology & Internet Integration', g('p_tech'));
-
-    secHead('2. PURPOSE');
-    field('Primary Purpose', g('pu_primary'));
-    field('Objective 1: GTEC Approval', g('pu_obj1'));
-    field('Objective 2: DL in Tertiary System', g('pu_obj2'));
-    field('Objective 5: Institutional Policies', g('pu_obj5'));
-
-    secHead('3. REQUIREMENTS FOR ACCREDITATION');
-    const r1=document.querySelector('input[name=r_c1]:checked');
-    field('Condition 1 — Conventional Accreditation', (r1?r1.value.toUpperCase():'') + '. ' + g('r_c1_detail'));
-    field('Condition 3 — Field Visit Readiness', g('r_c3_detail'));
-
-    doc.addPage(); y=mg;
-    secHead('4. INSTITUTIONAL DETAILS');
-    field('Name of Institution', g('i_name'));
-    field('Date of Establishment', g('i_estab'));
-    field('Type of Institution', g('i_type'));
-    field('Contact Person', g('i_contact_name') + ' — ' + g('i_contact_title'));
-    field('Telephone', g('i_contact_tel'));
-    field('Email', g('i_contact_email'));
-
-    secHead('5. DISTANCE LEARNING POLICY');
-    field('Mission & Philosophy Integration', g('dl_mission'));
-    field('Technology Policy Statement', g('dl_tech'));
-    field('Leadership & Governance', g('dl_gov'));
-
-    doc.addPage(); y=mg;
-    secHead('6. DETAILS OF PROGRAMME');
-    field('Programme Title', g('pr_title'));
-    field('Level of Programme', g('pr_level'));
-    field('Related Regular Programme(s)', g('pr_related_prog'));
-    field('Expected Duration (Full-time)', g('pr_duration'));
-    field('Time Limit', g('pr_timelimit'));
-    field('Total Credits', g('cr_total'));
-    field('Minimum CGPA', g('cr_cgpa'));
-    subHead('Programme Goals (Aims):');
-    field('', g('pr_goals'));
-    subHead('Programme Learning Outcomes:');
-    document.querySelectorAll('#plo-container textarea').forEach((ta,i) => {
-      if(ta.value.trim()) field('PLO'+(i+1), ta.value);
-    });
-    field('Programme Objectives', g('pr_objectives'));
-    field('Entry Requirements (First Degree)', g('pr_entry_a'));
-    field('Duration / Time Limit', g('pr_duration') + ' / ' + g('pr_timelimit'));
-    field('Programme Owner', g('pr_owner'));
-
-    // Enrollment table
-    newPage(60);
-    secHead('6.10. PROJECTED STUDENT ENROLLMENT (TABLE 1)');
-    const hdrs=['Centre','Y1-F','Y1-M','Y1-T','Y2-F','Y2-M','Y2-T','Y3-F','Y3-M','Y3-T'];
-    const cws=[38,12,12,14,12,12,14,12,12,14];
-    let tx=mg;
-    hdrs.forEach((h,i)=>{ doc.setFillColor(...navy); doc.rect(tx,y,cws[i],6,'F'); doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(...white); doc.text(h,tx+1,y+4); tx+=cws[i]; }); y+=6;
-    document.querySelectorAll('#enroll-body tr').forEach((row,ri)=>{
-      newPage(6); if(ri%2===0){doc.setFillColor(...lgray);doc.rect(mg,y,cw,5.5,'F');}
-      const ins=row.querySelectorAll('input'); tx=mg;
-      [...ins].forEach((inp,i)=>{ if(i<10){doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.setTextColor(...dark);doc.text(String(inp.value||'').substring(0,16),tx+1,y+3.8);tx+=cws[i]||12;} }); y+=5.5;
-    }); y+=8;
-
-    // Course tables
-    doc.addPage(); y=mg;
-    secHead('7. COURSE STRUCTURE');
-    const semLabels = {'y1s1':'Year 1: Semester 1','y1s2':'Year 1: Semester 2','y2s1':'Year 2: Semester 1','y2s2':'Year 2: Semester 2','electives':'Elective Courses'};
-    const semCws = [22,cw-22-18-18,18,18];
-    Object.entries(semLabels).forEach(([tid,label])=>{
-      newPage(40); subHead(label); y+=2;
-      ['Code','Title','Credits','Type'].forEach((h,i)=>{ const xs=[mg,mg+22,mg+22+semCws[1],mg+22+semCws[1]+18]; doc.setFillColor(220,232,248); doc.rect(xs[i],y,semCws[i],5.5,'F'); doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(...navy); doc.text(h,xs[i]+1,y+4); }); y+=5.5;
-      const rows=document.querySelectorAll('#'+tid+' tr');
-      rows.forEach((row,ri)=>{
-        const ins=row.querySelectorAll('input,select'); if(!ins[0])return;
-        newPage(6); if(ri%2===0){doc.setFillColor(...lgray);doc.rect(mg,y,cw,5.5,'F');}
-        const xs=[mg,mg+22,mg+22+semCws[1],mg+22+semCws[1]+18];
-        [[...ins][0]?.value||'',[...ins][1]?.value||'',[...ins][2]?.value||'',[...ins][3]?.value||''].forEach((v2,i)=>{ doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.setTextColor(...dark);doc.text(v2.substring(0,i===1?60:14),xs[i]+1,y+3.8); }); y+=5.5;
-      }); y+=8;
-    });
-
-    doc.addPage(); y=mg;
-    secHead('8. DELIVERY & MANAGEMENT');
-    field('Mode of Delivery', g('d_delivery'));
-    field('LMS Platform', g('d_lms'));
-    field('Physical Infrastructure', g('d_physical'));
-    field('ICT Infrastructure', g('d_tech'));
-    field('Formative Assessment', g('d_formative'));
-    field('Summative Assessment', g('d_summative'));
-    field('Academic Integrity', g('d_integrity'));
-
-    // Page numbers
-    const total = doc.internal.getNumberOfPages();
-    for(let p=1;p<=total;p++){
-      doc.setPage(p); doc.setFillColor(...navy); doc.rect(0,ph-11,pw,11,'F');
-      doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...white);
-      doc.text(g('i_name')+' — GTEC/INFO.A.7 Distance Education Accreditation', mg, ph-4);
-      doc.text('Page '+p+' of '+total, pw-mg, ph-4, {align:'right'});
+    function drawPageFooter() {
+      const pg = doc.internal.getNumberOfPages();
+      doc.setFontSize(7); doc.setFont('helvetica','normal');
+      doc.setTextColor(...mgray);
+      doc.line(mg, ph-10, pw-mg, ph-10);
+      doc.text('GTEC/INFO.A.7 — Ghana Tertiary Education Commission', mg, ph-6);
+      doc.text('Page ' + pg, pw-mg, ph-6, {align:'right'});
     }
 
-    doc.save('GTEC_INFO_A7_'+(g('i_name')||'UCC').replace(/\s+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.pdf');
-    showToast('PDF downloaded!', 'ok');
-  } catch(e) {
-    console.error(e); showToast('PDF error: '+e.message, 'err');
+    function hline(yy, col, thick) {
+      doc.setDrawColor(...(col||navy));
+      doc.setLineWidth(thick||0.3);
+      doc.line(mg, yy, pw-mg, yy);
+      doc.setLineWidth(0.2);
+    }
+
+    function sectionBanner(num, title) {
+      checkY(14);
+      doc.setFillColor(...navy);
+      doc.roundedRect(mg, y, cw, 10, 1, 1, 'F');
+      doc.setFontSize(10); doc.setFont('helvetica','bold');
+      doc.setTextColor(...white);
+      doc.text(num + '  ' + title.toUpperCase(), mg+4, y+6.8);
+      y += 14;
+    }
+
+    function subHeading(text) {
+      checkY(10);
+      doc.setFontSize(9); doc.setFont('helvetica','bold');
+      doc.setTextColor(...navy);
+      doc.text(text, mg, y);
+      y += 5;
+    }
+
+    function itemLabel(num, text, bold) {
+      checkY(8);
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setTextColor(...black);
+      const lines = doc.splitTextToSize(num + '  ' + text, cw);
+      doc.text(lines, mg, y);
+      y += lines.length * 4.2 + 1;
+    }
+
+    function answerBox(label, value, lines_count) {
+      lines_count = lines_count || 3;
+      checkY(6 + lines_count * 5);
+      // Label
+      if (label) {
+        doc.setFontSize(8); doc.setFont('helvetica','bold');
+        doc.setTextColor(...navy);
+        doc.text(label, mg, y);
+        y += 4;
+      }
+      // Value or blank lines
+      const boxH = lines_count * 5;
+      doc.setFillColor(250,251,253);
+      doc.setDrawColor(...mgray);
+      doc.setLineWidth(0.2);
+      doc.roundedRect(mg, y, cw, boxH, 1, 1, 'FD');
+      if (value && value.trim()) {
+        doc.setFontSize(8); doc.setFont('helvetica','normal');
+        doc.setTextColor(...black);
+        const vlines = doc.splitTextToSize(value.trim(), cw - 4);
+        doc.text(vlines.slice(0, Math.min(vlines.length, lines_count * 2)), mg+2, y+3.5);
+      } else {
+        // Dotted lines for empty fields
+        doc.setDrawColor(180,180,180); doc.setLineWidth(0.1);
+        for (let li = 1; li < lines_count; li++) {
+          doc.setLineDash([1,1]);
+          doc.line(mg+2, y+li*5, mg+cw-2, y+li*5);
+        }
+        doc.setLineDash([]);
+      }
+      y += boxH + 3;
+    }
+
+    function checkboxRow(items) {
+      // items = [{label, checked}]
+      checkY(8);
+      let x = mg;
+      doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+      items.forEach(item => {
+        doc.setDrawColor(...navy); doc.setLineWidth(0.3);
+        doc.rect(x, y-3.5, 3.5, 3.5);
+        if (item.checked) {
+          doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
+          doc.text('✓', x+0.5, y-0.5);
+        }
+        doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+        doc.text(item.label, x+5, y-0.5);
+        x += item.label.length * 2.2 + 14;
+      });
+      y += 6;
+    }
+
+    function miniTable(headers, rows, colWidths) {
+      checkY(10 + rows.length * 7);
+      let tx = mg;
+      const rowH = 6.5;
+      // Header row
+      doc.setFillColor(...navy);
+      doc.rect(mg, y, cw, rowH, 'F');
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(...white);
+      headers.forEach((h, i) => {
+        doc.text(h, tx+1.5, y+4.5);
+        tx += colWidths[i];
+      });
+      y += rowH;
+      // Data rows
+      rows.forEach((row, ri) => {
+        checkY(rowH + 2);
+        if (ri % 2 === 0) { doc.setFillColor(248,249,252); doc.rect(mg, y, cw, rowH, 'F'); }
+        doc.setDrawColor(...mgray); doc.setLineWidth(0.1);
+        doc.rect(mg, y, cw, rowH);
+        tx = mg;
+        doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+        row.forEach((cell, i) => {
+          const cellLines = doc.splitTextToSize(String(cell||''), colWidths[i]-2);
+          doc.text(cellLines[0]||'', tx+1.5, y+4.5);
+          doc.setDrawColor(200,200,200);
+          if (i < row.length-1) doc.line(tx+colWidths[i], y, tx+colWidths[i], y+rowH);
+          tx += colWidths[i];
+        });
+        y += rowH;
+      });
+      y += 4;
+    }
+
+    function staffTable(staffRows) {
+      const headers = ['Category','Name','Centre','Gender','Qualification/Yr','Rank/Exp','Specialization','Courses Taught','Workload'];
+      const colW = [22,22,16,10,30,20,20,22,12];
+      const rowH = 6;
+      checkY(12);
+      // Header
+      doc.setFillColor(...navy); doc.rect(mg, y, cw, rowH, 'F');
+      let tx = mg;
+      doc.setFontSize(5.5); doc.setFont('helvetica','bold'); doc.setTextColor(...white);
+      headers.forEach((h, i) => {
+        const hLines = doc.splitTextToSize(h, colW[i]-1);
+        doc.text(hLines[0], tx+1, y+4);
+        tx += colW[i];
+      });
+      y += rowH;
+      if (!staffRows || staffRows.length === 0) {
+        doc.setFillColor(250,250,250); doc.rect(mg, y, cw, rowH*3, 'F');
+        doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(...mgray);
+        doc.text('No staff data entered', mg+cw/2, y+9, {align:'center'});
+        y += rowH*3 + 4;
+        return;
+      }
+      staffRows.forEach((row, ri) => {
+        checkY(rowH+2);
+        if (ri%2===0){doc.setFillColor(248,249,252); doc.rect(mg,y,cw,rowH,'F');}
+        doc.setDrawColor(...mgray); doc.setLineWidth(0.1); doc.rect(mg,y,cw,rowH);
+        tx = mg;
+        doc.setFontSize(5.5); doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+        row.forEach((cell, i) => {
+          const t = String(cell||'').substring(0,20);
+          doc.text(t, tx+1, y+4);
+          if (i<row.length-1){doc.setDrawColor(200,200,200); doc.line(tx+colW[i],y,tx+colW[i],y+rowH);}
+          tx += colW[i];
+        });
+        y += rowH;
+      });
+      y += 4;
+    }
+
+    // ── Collect staff rows ───────────────────────────────────────
+    const staffRows = [];
+    document.querySelectorAll('#staff-container .rep-item').forEach(item => {
+      const ins = item.querySelectorAll('input,select');
+      if (ins.length) staffRows.push([...ins].map(i => i.value||''));
+    });
+
+    // ── Collect enrollment rows ──────────────────────────────────
+    const enrollRows = [];
+    document.querySelectorAll('#enroll-body tr').forEach(row => {
+      const ins = row.querySelectorAll('input');
+      if (ins.length) enrollRows.push([...ins].map(i => i.value||'0'));
+    });
+
+    // ── Collect course rows ──────────────────────────────────────
+    function getCourses(tid) {
+      const rows = [];
+      document.querySelectorAll('#'+tid+' tr').forEach(row => {
+        const ins = row.querySelectorAll('input,select');
+        if (ins.length >= 3) rows.push([ins[0]?.value||'', ins[1]?.value||'', ins[2]?.value||'', ins[3]?.value||'']);
+      });
+      return rows;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // PAGE 1 — COVER
+    // ════════════════════════════════════════════════════════════
+    // Navy header block
+    doc.setFillColor(...navy);
+    doc.rect(0, 0, pw, 52, 'F');
+    doc.setFillColor(...gold);
+    doc.rect(0, 52, pw, 1.5, 'F');
+
+    // Coat of arms placeholder circle
+    doc.setFillColor(255,255,255,0.15);
+    doc.circle(pw/2, 20, 12, 'S');
+    doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(255,255,255,80);
+    doc.text('GH', pw/2, 22, {align:'center'});
+
+    doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(...white);
+    doc.text('GHANA TERTIARY EDUCATION COMMISSION (GTEC)', pw/2, 38, {align:'center'});
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.text('GHANA', pw/2, 43, {align:'center'});
+
+    y = 62;
+    doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
+    doc.text('INSTRUMENT FOR', pw/2, y, {align:'center'}); y+=6;
+    doc.text('ASSESSING DISTANCE EDUCATION PROGRAMMES', pw/2, y, {align:'center'}); y+=6;
+    doc.text('FOR ACCREDITATION AND QUALITY ASSURANCE', pw/2, y, {align:'center'}); y+=10;
+
+    // Reference number box
+    doc.setFillColor(240,244,252);
+    doc.roundedRect(pw/2-20, y-4, 40, 10, 2, 2, 'F');
+    doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
+    doc.text('GTEC/INFO.A.7', pw/2, y+3, {align:'center'}); y+=14;
+
+    doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(...dgray);
+    doc.text('© GTEC 2018', pw/2, y, {align:'center'}); y+=14;
+
+    hline(y, gold, 0.5); y+=6;
+
+    // Institution info block
+    doc.setFillColor(...lgray);
+    doc.roundedRect(mg, y, cw, 32, 2, 2, 'F');
+    doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
+    doc.text('SUBMITTING INSTITUTION', mg+4, y+6);
+    doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+    const iName = g('i_name') || '____________________________________________';
+    const iProg = g('pr_title') || '____________________________________________';
+    const iDate = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
+    doc.text('Institution:  ' + iName, mg+4, y+13);
+    doc.text('Programme:  ' + iProg, mg+4, y+20);
+    doc.text('Date Submitted:  ' + iDate, mg+4, y+27);
+    y += 38;
+
+    hline(y, navy, 0.3); y += 5;
+    doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(...mgray);
+    const disclaimer = 'In addition to general GTEC requirements for accrediting tertiary education institutions, applicants shall satisfy these provisions to qualify to run DE programmes.';
+    const dLines = doc.splitTextToSize(disclaimer, cw);
+    doc.text(dLines, mg, y); y += dLines.length * 3.5 + 5;
+
+    drawPageFooter();
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 1 — PREAMBLE
+    // ════════════════════════════════════════════════════════════
+    newPage();
+    sectionBanner('1.', 'PREAMBLE');
+
+    const preambleText = 'Distance learning programme (DLP) involves learning activities that are carried out in educational settings such as universities, colleges, schools and professional institutions. These settings may involve both traditional and non-traditional classroom practices, often referred to as "dual mode system". A distance learning programme does not usually have a faculty or administrative services of its own but relies on the parent institution for teaching and administrative support.';
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...dgray);
+    const pLines = doc.splitTextToSize(preambleText, cw);
+    checkY(pLines.length * 4 + 2);
+    doc.text(pLines, mg, y); y += pLines.length * 4 + 4;
+
+    const preamble2 = 'Advances in technology and the Internet are also changing the dynamics of education. As a result, educational institutions are under pressure to reform courses and curricula, to redesign and manage new learning environments through telematics solutions, and to meet the learning needs of present-day students.';
+    const p2Lines = doc.splitTextToSize(preamble2, cw);
+    checkY(p2Lines.length * 4 + 2);
+    doc.text(p2Lines, mg, y); y += p2Lines.length * 4 + 4;
+
+    answerBox('Institutional Statement on DL Context:', g('p_context'), 4);
+    answerBox('Technology & Internet Integration Statement:', g('p_tech'), 3);
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 2 — PURPOSE
+    // ════════════════════════════════════════════════════════════
+    sectionBanner('2.', 'PURPOSE');
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...dgray);
+    const purposeIntro = 'Given the issues raised about quality and standards of teaching and scholarship in distance learning, the following guidelines shall ensure no student is short-changed in the quest for further academic and career achievements. Therefore, applicants shall satisfy the following objectives:';
+    const purLines = doc.splitTextToSize(purposeIntro, cw);
+    doc.text(purLines, mg, y); y += purLines.length * 4 + 4;
+
+    const objectives = [
+      'Seek GTEC approval to run academic and professional distance education programmes and courses offered by the parent institution or their representatives.',
+      'Define and situate distance learning programmes in context and as a component of the traditional or conventional tertiary education system.',
+      'Plan the educational functions of technology or ICT use in distance education as means to augment or advance academic and administrative objectives.',
+      'Ensure adequate preparation, quality and comparable distance learning programmes to the conventional system.',
+      'Ensure the establishment of institutional policies and procedures to protect its distance education objectives and interests, including administration, faculty or instructor qualifications, admission requirements, recruitment, programme design, distribution of course materials, copyrights, assessment, and qualifications gained.'
+    ];
+    objectives.forEach((obj, i) => {
+      checkY(10);
+      doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+      const oLines = doc.splitTextToSize('(' + (i+1) + ')  ' + obj, cw - 6);
+      doc.text(oLines, mg+6, y);
+      y += oLines.length * 4.2 + 2;
+    });
+    y += 2;
+
+    ['Primary Purpose of Seeking GTEC Approval:', 'Objective 1 — GTEC Approval for DE Programmes:',
+     'Objective 2 — DL in Tertiary System:', 'Objective 3 — Educational Functions of ICT:',
+     'Objective 4 — Quality and Comparable DL Programmes:', 'Objective 5 — Institutional Policies and Procedures:'].forEach((lbl, i) => {
+      const ids = ['pu_primary','pu_obj1','pu_obj2','pu_obj3','pu_obj4','pu_obj5'];
+      answerBox(lbl, g(ids[i]), 2);
+    });
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 3 — REQUIREMENTS FOR ACCREDITATION
+    // ════════════════════════════════════════════════════════════
+    sectionBanner('3.', 'REQUIREMENTS FOR ACCREDITATION');
+    subHeading('3.1  Eligibility');
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...dgray);
+    const eligText = 'In addition to GTEC\'s approved minimum requirements for accrediting higher education programmes, an institution will qualify to run distance learning programmes when it has:';
+    const eLines = doc.splitTextToSize(eligText, cw);
+    doc.text(eLines, mg, y); y += eLines.length * 4 + 4;
+
+    ['Accreditation to run conventional university or tertiary education system.',
+     'Submitted the completed application form, GTEC/INFO.A.7 and satisfied the competencies and provisions as required by the GTEC standards.',
+     'Passed the institutional (field) visit assessment, which shall provide evidences of supporting human and educational resources and conducive learning environments including physical and virtual spaces.'
+    ].forEach((req, i) => {
+      checkY(10);
+      const r1 = document.querySelector('input[name="r_c'+String(i+1)+'"]:checked');
+      const checked = r1 && r1.value === 'yes';
+      doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+      doc.setDrawColor(...navy); doc.setLineWidth(0.3);
+      doc.rect(mg, y-3.5, 3.5, 3.5);
+      if (checked) { doc.setFont('helvetica','bold'); doc.setTextColor(...navy); doc.text('✓', mg+0.5, y-0.3); doc.setFont('helvetica','normal'); doc.setTextColor(...black); }
+      const rLines = doc.splitTextToSize(String(i+1)+'.  '+req, cw-6);
+      doc.text(rLines, mg+6, y-0.3);
+      y += rLines.length * 4.2 + 3;
+    });
+
+    answerBox('3.1.1  Evidence of Conventional Accreditation (reference, date, issuing body):', g('r_c1_detail'), 2);
+    answerBox('3.1.3  Field Visit Readiness — Resources Available:', g('r_c3_detail'), 2);
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 3.2 — INSTITUTIONAL DETAILS
+    // ════════════════════════════════════════════════════════════
+    sectionBanner('3.2', 'INSTITUTIONAL DETAILS');
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...dgray);
+    doc.text('Applicants shall submit to GTEC the details of the institution, including names and dates of establishment and last accreditation (if applicable), academic collaborations or affiliation (if applicable), location and contact information.', mg, y);
+    y += 10;
+
+    // Info table
+    const instFields = [
+      ['Name of Institution:', g('i_name')],
+      ['Date of Establishment:', g('i_estab')],
+      ['Type of Institution (university, college, polytechnic, etc.):', g('i_type')],
+      ['Date of Last Accreditation:', g('i_last_accred')],
+      ['Name of Institution to Award Diploma/Degrees (if different):', g('i_award_inst')],
+    ];
+    instFields.forEach(([lbl, val]) => {
+      checkY(10);
+      doc.setFillColor(248,249,252);
+      doc.roundedRect(mg, y-3, cw, 8, 1, 1, 'F');
+      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
+      doc.text(lbl, mg+2, y+1.5);
+      doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+      doc.text(val || '____________________________', mg+2 + doc.getTextWidth(lbl) + 3, y+1.5);
+      doc.setDrawColor(...mgray); doc.setLineWidth(0.1);
+      doc.roundedRect(mg, y-3, cw, 8, 1, 1, 'S');
+      y += 10;
+    });
+
+    // Public/Private checkboxes
+    checkY(14);
+    doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
+    doc.text('Public Institution:', mg, y);
+    const pubVal = document.querySelector('input[name="i_public"]:checked')?.value;
+    checkboxRow([{label:'Yes', checked: pubVal==='yes'}, {label:'No', checked: pubVal==='no'}]);
+
+    doc.text('Private Institution:', mg, y);
+    const privVal = document.querySelector('input[name="i_private"]:checked')?.value;
+    checkboxRow([{label:'Yes', checked: privVal==='yes'}, {label:'No', checked: privVal==='no'}]);
+
+    doc.text('Tenancy Agreement (where applicable):', mg, y);
+    const tenVal = document.querySelector('input[name="i_tenancy"]:checked')?.value;
+    checkboxRow([{label:'Yes — submit a copy', checked: tenVal==='yes'}, {label:'No', checked: tenVal==='no'}]);
+
+    doc.text('Academic Collaborations / Affiliations:', mg, y);
+    const collVal = document.querySelector('input[name="i_collab"]:checked')?.value;
+    checkboxRow([{label:'Yes — submit MOU and relevant documents', checked: collVal==='yes'}, {label:'No', checked: collVal==='no'}]);
+    y += 3;
+
+    subHeading('Contact Information');
+    const contactFields = [
+      ['Contact Person Name:', g('i_contact_name')],
+      ['Title / Position:', g('i_contact_title')],
+      ['Address:', g('i_contact_addr')],
+      ['Telephone:', g('i_contact_tel')],
+      ['Email:', g('i_contact_email')],
+    ];
+    contactFields.forEach(([lbl, val]) => {
+      checkY(8);
+      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
+      doc.text(lbl, mg, y);
+      doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+      doc.text(val || '________________________________', mg + doc.getTextWidth(lbl) + 3, y);
+      y += 6;
+    });
+    y += 3;
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 3.3 — DISTANCE LEARNING POLICY
+    // ════════════════════════════════════════════════════════════
+    sectionBanner('3.3', 'DISTANCE LEARNING POLICY');
+    checkY(8);
+    doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(180,0,0);
+    doc.text('No institution shall run DE degree or diploma programme and courses without a DL implementation policy.', mg, y);
+    y += 5;
+    doc.setFont('helvetica','italic'); doc.setTextColor(...dgray);
+    doc.text('Please provide a copy of your DL policy document(s).', mg, y);
+    y += 7;
+
+    answerBox('State how the DL programme integrates with the institution\'s academic mission and philosophy:', g('dl_mission'), 5);
+    answerBox('Provide policy statement on the variability and possible combinations of technologies to be employed or deployed for teaching, learning and research:', g('dl_tech'), 4);
+    answerBox('Explain how the DE policy on leadership conforms to established governance and administration of the institution:', g('dl_gov'), 4);
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 4 — DETAILS OF PROGRAMME
+    // ════════════════════════════════════════════════════════════
+    newPage();
+    sectionBanner('4.', 'DETAILS OF PROGRAMME');
+    doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(...dgray);
+    doc.text('Please provide information on the proposed distance education programme.', mg, y); y+=7;
+
+    // Programme title
+    checkY(12);
+    doc.setFillColor(240,244,252);
+    doc.roundedRect(mg, y-3, cw, 10, 1, 1, 'F');
+    doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
+    doc.text('Programme Title:', mg+2, y+3);
+    doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+    doc.text(g('pr_title')||'', mg+36, y+3);
+    doc.setDrawColor(...navy); doc.setLineWidth(0.3);
+    doc.roundedRect(mg, y-3, cw, 10, 1, 1, 'S');
+    y += 13;
+
+    itemLabel('4.1', 'Is the programme related to any of the regular programme(s)?');
+    const relVal = document.querySelector('input[name="pr_related"]:checked')?.value;
+    checkboxRow([{label:'Yes', checked: relVal==='yes'}, {label:'No', checked: relVal==='no'}]);
+    answerBox('4.1.1  If yes, indicate which one(s):', g('pr_related_prog'), 2);
+
+    answerBox('4.2  Level of programme (Dip., HND, B.Tech, BA, BSc, MA, MSc, MPhil, PhD, EdD, etc.):', g('pr_level'), 1);
+
+    answerBox('4.3.1  Goals (Aims) of the programme:', g('pr_goals'), 4);
+    answerBox('4.3.2  Objectives of the programme:', g('pr_objectives'), 4);
+
+    itemLabel('4.4', 'State the entry requirements of students into the proposed level of the DL programmes:');
+    answerBox('Degree level entry requirements:', g('pr_entry_a'), 3);
+    answerBox('Non-research Master\'s degree applicants:', g('pr_entry_b'), 2);
+    answerBox('Open learning admissions:', g('pr_entry_open')||'Not Applicable', 1);
+
+    answerBox('4.5  Explain if the DE programme will allow for multiple entry points during the academic year:', g('pr_duration'), 2);
+
+    itemLabel('4.6', 'Components of the programme:', true);
+    ['4.6.1  Pre-requisite or foundational courses for applicants who would have otherwise not qualified:',
+     '4.6.2  Core course(s):', '4.6.3  Mandatory course(s):', '4.6.4  Research requirements:',
+     '4.6.5  Competency-based training (CBT):', '4.6.6  Practical Training (clinical, industrial, internship, teaching, etc.):',
+     '4.6.7  Other (additional) requirements:'].forEach(lbl => answerBox(lbl, '', 2));
+
+    itemLabel('4.7', 'Expected completion period of the programme (in years):');
+    checkY(16);
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+    const durFT = g('pr_duration')||''; const durLimit = g('pr_timelimit')||'';
+    doc.text('Part-time: ' + (durFT||'_____________'), mg, y);
+    doc.text('Full-time: ' + (durFT||'_____________'), mg+60, y); y+=5;
+    doc.text('Time Limit: ' + (durLimit||'_____________'), mg, y); y+=8;
+
+    itemLabel('4.8', 'Ownership of programme:');
+    answerBox('Institution that owns the programme:', g('pr_owner'), 1);
+    answerBox('4.8.1  Contact Name:', g('i_contact_name'), 1);
+    answerBox('4.8.2  Address:', g('i_contact_addr'), 1);
+    answerBox('4.8.3  Telephone:', g('i_contact_tel'), 1);
+    answerBox('4.8.4  Email:', g('i_contact_email'), 1);
+
+    // ── Programme Learning Outcomes ─────────────────────────────
+    subHeading('Programme Learning Outcomes (PLOs)');
+    const ploTAs = document.querySelectorAll('#plo-container textarea');
+    ploTAs.forEach((ta, i) => {
+      if (ta.value.trim()) answerBox('PLO ' + (i+1) + ':', ta.value, 2);
+    });
+
+    // ── Table 1: Projected Enrollment ──────────────────────────
+    checkY(50);
+    subHeading('4.9  Projected Student Enrollment — Table 1');
+    const enHeaders = ['Programme Centre(s)', 'Year 1 Female', 'Year 1 Male', 'Year 1 Total', 'Year 2 Female', 'Year 2 Male', 'Year 2 Total', 'Year 3 Female', 'Year 3 Male', 'Year 3 Total'];
+    const enColW = [38,14,14,14,14,14,14,14,14,14];
+    const enData = enrollRows.map(r => [r[0]||'', r[1]||'0', r[2]||'0', String(parseInt(r[1]||0)+parseInt(r[2]||0)), r[3]||'0', r[4]||'0', String(parseInt(r[3]||0)+parseInt(r[4]||0)), r[6]||'0', r[7]||'0', String(parseInt(r[6]||0)+parseInt(r[7]||0))]);
+    if (!enData.length) enData.push(['(No data entered)', '0','0','0','0','0','0','0','0','0']);
+    miniTable(enHeaders, enData, enColW);
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 5 — COURSE DESCRIPTION, CONTENTS, DELIVERY
+    // ════════════════════════════════════════════════════════════
+    newPage();
+    sectionBanner('5.', 'COURSE DESCRIPTION, CONTENTS, DELIVERY AND MANAGEMENT');
+
+    doc.setFontSize(7.5); doc.setFont('helvetica','italic'); doc.setTextColor(...dgray);
+    const sec5note = 'Distance education programme contents and courses shall conform to all standard practices and procedures as established for traditional systems. The programme will be assessed on the following standards:';
+    const s5Lines = doc.splitTextToSize(sec5note, cw);
+    doc.text(s5Lines, mg, y); y += s5Lines.length * 3.8 + 5;
+
+    // Programme design standards (bullet list)
+    const standards = [
+      '5.1  Programme design (structure, contents, organization and credit value for each course or module).',
+      '5.2  Programme and course learning objectives including competencies, skills and behavioral expectations.',
+      '5.3  Programme and course content development — consistency in presentation, organization and structure, interactivity.',
+      '5.4  Programme and course content delivery — types of delivery and classroom management options.',
+      '5.5  Content management and evaluation — class sizes, course packaging, physical, virtual and blended environments.',
+      '5.6  Type of learner and instructor engagement (synchronous / asynchronous or both).',
+      '5.7  Requirements for graduation — course load, credit requirements, coherence of course of study.'
+    ];
+    standards.forEach(s => {
+      checkY(8);
+      doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+      const sLines = doc.splitTextToSize(s, cw-4);
+      doc.text(sLines, mg+4, y);
+      y += sLines.length * 4.2 + 1.5;
+    });
+    y += 3;
+
+    // Credit requirements
+    checkY(16);
+    doc.setFillColor(248,249,252);
+    doc.roundedRect(mg, y, cw, 14, 1, 1, 'F');
+    doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
+    doc.text('Credit Requirements for Graduation:', mg+2, y+5);
+    doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+    doc.text('Total Credits: ' + (g('cr_total')||'___'), mg+2, y+10);
+    doc.text('Min. CGPA: ' + (g('cr_cgpa')||'___'), mg+40, y+10);
+    doc.text('Pass Mark: ' + (g('cr_pass')||'___'), mg+75, y+10);
+    y += 18;
+
+    // Course tables per semester
+    const semGroups = [
+      {label:'5.1  YEAR 1: SEMESTER 1 — Course Schedule', id:'y1s1'},
+      {label:'5.2  YEAR 1: SEMESTER 2 — Course Schedule', id:'y1s2'},
+      {label:'5.3  YEAR 2: SEMESTER 1 — Course Schedule', id:'y2s1'},
+      {label:'5.4  YEAR 2: SEMESTER 2 — Course Schedule', id:'y2s2'},
+      {label:'5.5  ELECTIVE COURSES', id:'electives'},
+    ];
+
+    semGroups.forEach(sem => {
+      const rows = getCourses(sem.id);
+      if (!rows.length) return;
+      checkY(20);
+      subHeading(sem.label);
+      const cHeaders = ['Course Code', 'Course Title', 'Credit Hours', 'Type'];
+      const cColW = [25, cw-25-18-18, 18, 18];
+      miniTable(cHeaders, rows, cColW);
+    });
+
+    // Delivery questions
+    answerBox('5.8  Type(s) of course delivery and classroom management options (e.g. tutoring, lecturing, technology-mediated solutions — blended, online, mobile, etc.):', g('d_delivery'), 3);
+    answerBox('5.9  LMS Platform:', g('d_lms'), 1);
+    const engVal = g('d_engagement');
+    checkY(8);
+    doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
+    doc.text('5.10  Type of learner and instructor engagement:', mg, y); y+=5;
+    checkboxRow([
+      {label:'Synchronous (real time)', checked: engVal==='sync'},
+      {label:'Asynchronous (anytime, anywhere)', checked: engVal==='async'},
+      {label:'Both', checked: engVal==='both'}
+    ]);
+    answerBox('5.11  Alternative means of course access for diverse learners (including students with disabilities):', g('d_access'), 2);
+
+    // ── Table 2: Staff/Student Ratio ────────────────────────────
+    checkY(30);
+    subHeading('Table 2: Staff/Student Ratio (SSR)');
+    const ssrRows = [];
+    document.querySelectorAll('#ssr-body tr').forEach(tr => {
+      const ins = tr.querySelectorAll('input');
+      if (ins.length) ssrRows.push([...ins].map(i=>i.value||''));
+    });
+    miniTable(['Unit/Department','Full-Time Staff','Part-Time Staff','Full-Time Students','Part-Time Students','SSR'],
+      ssrRows.length ? ssrRows : [['','','','','',''],['',' ',' ',' ',' ',' ']], [40,22,22,22,22,22]);
+
+    // ── Table 3: Facilitator/Student Ratio ─────────────────────
+    checkY(20);
+    subHeading('Table 3: Facilitator/Student Ratio (FSR)');
+    miniTable(['Total No. of DL Facilitators','Total No. of Students on the Programme','Facilitator/Student Ratio (FSR)'],
+      [['','',''],['',' ',' ']], [60,60,50]);
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 6 — LEARNING ENVIRONMENT
+    // ════════════════════════════════════════════════════════════
+    newPage();
+    sectionBanner('6.', 'LEARNING ENVIRONMENT: PHYSICAL, TECHNICAL AND TECHNOLOGICAL REQUIREMENTS');
+    answerBox('6.1  Type(s) of physical infrastructure available (e.g. learning or study centres, eLearning and ICT centres, library, etc.):', g('d_physical'), 3);
+    answerBox('6.2  Type(s) of technological (ICT) infrastructure available (e.g. computer network, internet, LMS, ERP systems, etc.):', g('d_tech'), 3);
+    answerBox('6.3  Key ICT and Educational Technology staff (name, qualification, status and responsibility):', '', 3);
+    answerBox('6.4  Roles of ICT and Educational/Instructional Technology staff in managing the DE programme:', '', 3);
+    answerBox('6.5  Evidence of support for faculty development regarding ICT/digital literacy and technology-mediated pedagogy:', '', 2);
+    answerBox('6.6  Evidence of student support system (access to information, orientation and help options):', '', 2);
+    answerBox('6.7  Distribution points for course content access (library, personal computers, mobile devices, on/off campus, etc.):', '', 2);
+    answerBox('6.8  Potentials of the selected technology-mediated pedagogical solution(s) and how it supports student learning outcomes:', '', 3);
+    answerBox('6.9  Limitations of the technology-mediated solution(s) and how challenges will be solved:', '', 2);
+    answerBox('6.10  Possible solutions for sustainability and safeguarding future risks:', '', 2);
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 7 — INSTRUCTOR QUALIFICATION
+    // ════════════════════════════════════════════════════════════
+    sectionBanner('7.', 'INSTRUCTOR QUALIFICATION');
+    doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(...dgray);
+    doc.text('The institution shall maintain a core group of highly qualified academic staff with appreciable length of experience in their chosen professions and in the DL field.', mg, y);
+    y += 8;
+
+    answerBox('7.1  Requirements for e-pedagogical skills of faculty who intend to teach through technology:', '', 3);
+    answerBox('7.2  Evidence of continuous faculty professional development to direct teaching or facilitation through technology:', '', 2);
+    answerBox('7.3  Salary structure of instructors or faculty members (for academic audit):', '', 2);
+
+    // ── Table 4: Staff Details ──────────────────────────────────
+    newPage();
+    subHeading('Table 4: Staff Details');
+    staffTable(staffRows);
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 8 — ASSESSMENT, GRADING AND CERTIFICATION
+    // ════════════════════════════════════════════════════════════
+    sectionBanner('8.', 'ASSESSMENT, GRADING AND CERTIFICATION');
+    doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(...dgray);
+    doc.text('Students\' performances, learning outcomes and requirements for successful course completion shall compare favourably to that of residential programmes.', mg, y);
+    y += 8;
+
+    answerBox('8.1  Formative assessment (e.g. continuous assessment — quizzes, multiple choice, etc.):', g('d_formative'), 3);
+    answerBox('8.2  Summative assessment (e.g. end-of-semester projects and long essays):', g('d_summative'), 3);
+    answerBox('8.3  How will plagiarism be checked and academic honesty maintained (e.g. integrated software, standalone software, manual check, multiple checks, etc.):', g('d_plagiarism'), 2);
+
+    itemLabel('8.4', 'Explain how examinations shall be:');
+    const examVal = g('d_exam');
+    answerBox('8.4.1  Conducted (e.g. physical/proctored, physical/non-proctored, online/non-proctored, online/proctored, etc.):', examVal, 2);
+    answerBox('8.4.2  Regulated/Moderated (e.g. internal, external, internal and external):', '', 2);
+    answerBox('8.4.3  Reported (e.g. computer-based, physical/manual, online, etc.):', '', 2);
+    answerBox('8.5  Measures to ensure security and integrity of examinations (conduct, impersonation, invigilation and certification):', g('d_integrity'), 3);
+    answerBox('8.6  Seasonal (mid-year, end-of-year) reports on effectiveness of online learning offerings (for academic audit):', '', 2);
+    answerBox('8.7  General appraisal of the learning management solution (mode, compliance, practicality, scalability, interoperability, levels of success) — for academic audit:', '', 3);
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 9 — STUDENT AND ADMINISTRATIVE SUPPORT
+    // ════════════════════════════════════════════════════════════
+    newPage();
+    sectionBanner('9.', 'STUDENT AND ADMINISTRATIVE SUPPORT');
+    answerBox('9.1  Admission requirements for non-regular students (open learning admissions, pre-requisites, credit accumulations):', '', 3);
+    answerBox('9.2  How students to be admitted fit the profile of enrolment into the DE programme:', '', 3);
+    answerBox('9.3  Student orientation plan toward utilization of technology-mediated distance education:', '', 2);
+    answerBox('9.4  How students will be supported in demonstrating adequate proficiency in the use of technology-mediated DL:', '', 2);
+
+    itemLabel('9.5', 'General administration and technical support for students throughout the learning experience:');
+    answerBox('9.5.1  Access to course and learning resources (including open accesses):', '', 2);
+    answerBox('9.5.2  Tracking student participation to reduce attrition rates:', '', 2);
+    answerBox('9.5.3  Channel of communication:', '', 2);
+
+    itemLabel('9.6', 'Channels of communication available to students:');
+    const commItems = ['Enquiries','Registration','Payment terms and procedures','Refunds (where applicable)','Guidance and Counseling','Conflict resolution','Access to transcripts and result details'];
+    commItems.forEach(item => answerBox(item + ':', '', 1));
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 10 — ACADEMIC INTEGRITY AND QUALITY ASSURANCE
+    // ════════════════════════════════════════════════════════════
+    sectionBanner('10.', 'ACADEMIC INTEGRITY AND QUALITY ASSURANCE');
+    doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(...dgray);
+    doc.text('Institutions shall be responsible for ensuring that students who register in a distance education programme or course are the same as those who receive credits, complete and graduate.', mg, y);
+    y += 8;
+
+    answerBox('10.1  Measures to ensure confidentiality and authentication of identity of students enrolled in the DE programmes, particularly in online options:', g('d_integrity'), 3);
+    answerBox('10.2  Measures to ensure the integrity of DE systems, including ethical practice, security and authenticity of students in both physical and online learning environments:', '', 3);
+    answerBox('10.3  DE quality assurance policy with statements on academic honesty, ethical practice, distribution of course materials, copyright, impersonation, equity and equal access:', '', 3);
+
+    // ════════════════════════════════════════════════════════════
+    // SECTION 11 — FINANCE AND ADMINISTRATION
+    // ════════════════════════════════════════════════════════════
+    sectionBanner('11.', 'FINANCE AND ADMINISTRATION');
+    answerBox('11.1  Evidence of integrated DE budget into general budget to ensure sustainability of ICT or technology-mediated programme:', '', 3);
+    answerBox('11.2  Justification of sources of funding to ensure sustainability of DE programmes and integrated innovations:', '', 3);
+    answerBox('11.3  Bank information for justification:', '', 2);
+
+    // ════════════════════════════════════════════════════════════
+    // FINAL PAGE — NOTES & CHECKLIST
+    // ════════════════════════════════════════════════════════════
+    newPage();
+    sectionBanner('NOTES', 'REQUIRED SUPPORTING DOCUMENTS');
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...dgray);
+    doc.text('In addition to general GTEC requirements for accrediting tertiary education institutions, applicants shall satisfy these provisions to qualify to run DE programmes. They shall submit the following documents:', mg, y);
+    y += 10;
+
+    const noteItems = [
+      'DE policies with clear directions, processes and expected key performance outcomes.',
+      'Faculty policy / handbook',
+      'Student policy / handbook',
+      'User manuals to guide navigation of technology-mediated pedagogy (where applicable).',
+      'Copy of MOU and relevant documents (if academic collaborations / affiliations exist).',
+      'Staff publications and technical reports.',
+      'DE financial plan / composite budget.',
+      'Seasonal mid-year and end-of-year reports (for academic audit).',
+      'LMS appraisal report (for academic audit — where applicable).',
+    ];
+    noteItems.forEach((note, i) => {
+      checkY(8);
+      doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+      doc.setFillColor(...gold);
+      doc.circle(mg+1.5, y-1, 1.2, 'F');
+      doc.text(note, mg+5, y);
+      y += 6;
+    });
+
+    y += 6; hline(y, navy, 0.4); y += 8;
+
+    // Signature block
+    checkY(40);
+    doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...navy);
+    doc.text('DECLARATION', mg, y); y += 6;
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...black);
+    const decText = 'I/We hereby declare that the information provided in this form is true and accurate to the best of my/our knowledge, and that the institution is committed to meeting all GTEC requirements for distance education accreditation.';
+    const decLines = doc.splitTextToSize(decText, cw);
+    doc.text(decLines, mg, y); y += decLines.length * 4.5 + 10;
+
+    const sigCols = [[mg,'Authorised Signatory'],[mg+cw/2,'Date']];
+    sigCols.forEach(([x, label]) => {
+      doc.setDrawColor(...navy); doc.setLineWidth(0.4);
+      doc.line(x, y, x+cw/2-8, y);
+      doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(...dgray);
+      doc.text(label, x, y+4);
+    });
+    y += 14;
+
+    doc.setDrawColor(...navy); doc.line(mg, y, mg+80, y);
+    doc.setFontSize(7.5); doc.text('Name and Designation', mg, y+4);
+    y += 14;
+    doc.setDrawColor(...navy); doc.line(mg, y, mg+80, y);
+    doc.setFontSize(7.5); doc.text('Official Stamp', mg, y+4);
+
+    // Update all page footers with final count
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setFillColor(...white);
+      doc.rect(0, ph-14, pw, 14, 'F');
+      doc.setDrawColor(...navy); doc.setLineWidth(0.3);
+      doc.line(mg, ph-10, pw-mg, ph-10);
+      doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...mgray);
+      doc.text('GTEC/INFO.A.7 — ' + (g('i_name')||'Ghana Tertiary Education Commission'), mg, ph-5);
+      doc.text('Page ' + p + ' of ' + totalPages, pw-mg, ph-5, {align:'right'});
+    }
+
+    const fname = 'GTEC_INFO_A7_' + (g('i_name')||'Application').replace(/\s+/g,'_') + '_' + new Date().toISOString().split('T')[0] + '.pdf';
+    doc.save(fname);
+    showToast('PDF downloaded — ' + totalPages + ' pages', 'ok');
+
+  } catch(err) {
+    console.error(err);
+    showToast('PDF error: ' + err.message, 'err');
   }
 }
 
-/* ─────────────────────────────────────────────────────────────
-   WORD EXPORT
-   ───────────────────────────────────────────────────────────── */
 async function exportWord() {
   showToast('Generating Word document...', '');
   try {
