@@ -1248,7 +1248,13 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
    KEY:  Supabase dashboard → Settings → API → anon/public key
    ══════════════════════════════════════════════════════════════ */
 const SUPABASE_URL  = 'https://bhxkxpqtlqhhlyowgbmn.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJoeGt4cHF0bHFoaGx5b3dnYm1uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MjA2OTEsImV4cCI6MjA5Mjk5NjY5MX0.DKa04fr8lRYjJosa8lhPCGk87V7xJua-blpdVQ7D9Qg'; // ← REPLACE THIS before uploading
+const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY_HERE'; // ← REPLACE THIS before uploading
+
+  /* ── Portal content version — auto-increments on every rebuild.
+     When a user's Supabase record was saved with an older BUILD,
+     the portal will prompt them to reset to the new defaults.      ── */
+  const PORTAL_BUILD = '202605012156';
+  const PROGRAMME_KEY = 'MSc-Economics-UCC-2025'; // unique key for this programme
 
 /* Admin email list — these users see all submissions */
 const ADMIN_EMAILS  = [
@@ -1448,6 +1454,8 @@ async function saveToSupabase(showMsg = false) {
     status: 'draft',
     updated_at: new Date().toISOString(),
   };
+  // Stamp the build version into form_data so we can detect stale records later
+  payload.form_data = { ...payload.form_data, _portal_build: PORTAL_BUILD };
   let error;
   if (currentAppId) {
     // UPDATE existing row
@@ -1472,20 +1480,100 @@ async function saveToSupabase(showMsg = false) {
 
 async function loadFromSupabase() {
   if (!sbReady || !currentUser) return;
-  // Load ALL applications for this user
   const { data, error } = await sb.from('applications')
     .select('id, programme_title, institution_name, status, updated_at, form_data')
     .eq('user_id', currentUser.id)
     .order('updated_at', { ascending: false });
   if (error) { console.warn('Load error:', error.message); return; }
+
   if (data && data.length > 0) {
     renderAppSwitcher(data);
-    // Auto-load the most recently updated one
-    await loadApplication(data[0].id, data[0]);
+    const newest = data[0];
+    const savedBuild = newest.form_data?._portal_build;
+
+    // ── VERSION CHECK: saved data is from an older build ──────────
+    if (savedBuild && savedBuild !== PORTAL_BUILD) {
+      showVersionMismatchBanner(newest.id, savedBuild);
+      // Still load the saved data for now — user can decide
+      await loadApplication(newest.id, newest);
+    } else if (!savedBuild) {
+      // No build stamp at all — stale record, prompt reset
+      showVersionMismatchBanner(newest.id, 'unknown');
+      await loadApplication(newest.id, newest);
+    } else {
+      await loadApplication(newest.id, newest);
+    }
   } else {
     renderAppSwitcher([]);
-    showToast('No saved applications. Start filling the form!', 'ok');
+    showToast('No saved applications. Form loaded with programme defaults.', 'ok');
   }
+}
+
+function showVersionMismatchBanner(staleAppId, oldBuild) {
+  const existing = document.getElementById('version-banner');
+  if (existing) existing.remove();
+  const banner = document.createElement('div');
+  banner.id = 'version-banner';
+  banner.style.cssText = [
+    'position:sticky','top:68px','z-index:91',
+    'background:linear-gradient(135deg,#b7600a,#e67e22)',
+    'color:white','padding:12px 28px',
+    'display:flex','align-items:center','justify-content:space-between',
+    'gap:16px','font-size:13px','font-weight:600',
+    'box-shadow:0 2px 12px rgba(0,0,0,.25)',
+    'border-bottom:3px solid #f39c12'
+  ].join(';');
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:20px;">⚠️</span>
+      <div>
+        <div style="font-size:14px;font-weight:800;">OUTDATED SAVED DATA DETECTED</div>
+        <div style="font-size:11px;opacity:.9;">
+          Your saved form was from an older version of the portal (build: <strong>${oldBuild}</strong>).
+          The portal has been updated with new programme content (MSc Economics).
+          Click <strong>Reset to New Defaults</strong> to clear old data and load the updated programme.
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+      <button onclick="resetToNewDefaults('${staleAppId}')"
+        style="background:white;color:#b7600a;border:none;padding:8px 16px;border-radius:7px;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;">
+        🔄 Reset to New Defaults
+      </button>
+      <button onclick="document.getElementById('version-banner').remove()"
+        style="background:rgba(255,255,255,.15);color:white;border:1.5px solid rgba(255,255,255,.4);padding:8px 14px;border-radius:7px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;">
+        Keep Old Data
+      </button>
+    </div>
+  `;
+  const appBody = document.querySelector('.app-body');
+  appBody.parentNode.insertBefore(banner, appBody);
+}
+
+async function resetToNewDefaults(staleAppId) {
+  if (!confirm('This will DELETE your old saved application and reload the form with the new MSc Economics defaults.\n\nAre you sure?')) return;
+  // Delete the stale Supabase record
+  if (staleAppId) {
+    await sb.from('applications').delete().eq('id', staleAppId).eq('user_id', currentUser.id);
+  }
+  // Remove banner
+  document.getElementById('version-banner')?.remove();
+  // Reset form state
+  currentAppId = null;
+  // Clear and reload defaults
+  clearForm(true);
+  loadDefaults();
+  refreshAppSwitcher();
+  showToast('✅ Form reset to MSc Economics defaults. Fill in your details and save.', 'ok');
+}
+
+function loadDefaults() {
+  // Re-populate PLOs, courses, staff from defaults
+  defaultPLOs.forEach(p => addPLO(p));
+  Object.entries(defaultCourses).forEach(([tid,rows]) => rows.forEach(r => addCourse(tid,...r)));
+  defaultElectives.forEach(r => addElective(...r));
+  defaultStaff.forEach(s => addStaff(s));
+  updateEnrollTotals();
 }
 
 async function loadApplication(appId, rowData) {
@@ -1964,6 +2052,22 @@ const defaultElectives = [
   ['MEC 823','Monetary Economics','3'],
   ['MEC 824','Public Sector Economics','3'],
   ['MEC 825','Environmental Economics','3']
+];
+
+const defaultStaff = [
+  ['Prof. Siaw Frimpong','Teaching Staff (HQ)','CoDE, Cape Coast','M','PhD Finance, 2014, Kenya','Full Professor / 21 years','Finance','Academic Writing',''],
+  ['Prof. Anokye M. Adam','Teaching Staff (HQ)','Cape Coast','M','PhD Finance, 2015, University of Venda','Full Professor / 15 years','Finance','Quantitative Data Analysis','6 credit hours'],
+  ['Dr. Paul Mensah Agyei','Teaching Staff (HQ)','Koforidua','M','PhD Marketing','Senior Lecturer','Marketing','Research Methods in Economics','6 credit hours'],
+  ['Dr. Daisy Ofosuhene','Teaching Staff (HQ)','Cape Coast','M','PhD Human Resource Development, 2017, UCC','Senior Lecturer / 10 years','Human Resource Development','Quantitative Data Analysis','3 credit hours'],
+  ['Dr. (Mrs) Joana Eva Dodoo','Teaching Staff (HQ)','Online (Kumasi/Ho)','F','PhD Human Resource Development, 2019, UCC','Senior Lecturer / 10 years','Human Resource Development','Academic Writing / Organizational Development','3 credit hours'],
+  ['Dr. Moses Segbenya','Teaching Staff (HQ)','','F','PhD Human Resource Management, 2021, Universiti Sains Malaysia','Senior Lecturer / 10 years','Human Resource Management','Qualitative Data Analysis','3 credit hours'],
+  ['Mr. Sampson Achina','Teaching Staff (HQ)','Kumasi','M','PhD Accounting Education, UCC (Ongoing)','Lecturer','Accounting','Accounting and Finance for Managers','3 credit hours'],
+  ['Dr. Isaac Kwadwo Anim','Teaching Staff (HQ)','All Centres','M','PhD (Economics)/LLB','Lecturer','Law / Economics','Legal Environment of Business / Managerial Economics','6 credit hours'],
+  ['Prof. Abraham Ansong','Teaching Staff (HQ)','Kumasi','M','PhD Development Studies, 2015, UCC','Associate Professor / 10 years','Development Studies','Management Theory and Practice / Corporate Governance and Ethics','6 credit hours'],
+  ['Prof. Nicodemus Osei Owusu','Teaching Staff (HQ)','Kumasi','M','PhD Public Policy & Management, 2011, University of Southampton','Senior Lecturer / 10 years','Organizational Management / Health Policy','International Business Management / MIS','6 credit hours'],
+  ['Dr. Mrs. Joan-Ark Manu Agyapong','Facilitator/Tutor','Sunyani','F','PhD Management, 2022, South Africa','Lecturer / 3 years DL','Organisational Behaviour','Management Theory and Practice','3 credit hours'],
+  ['Dr. Mrs. Anastasia Nana Ama Kumi-Korsah','Facilitator/Tutor','Wa and Bolga','F','PhD Management Education, 2022, UCC','Teaching Associate / 1 year DL','Management Education','Advanced Organizational Behaviour','3 credit hours'],
+  ['Dr. Nick Fobih','Facilitator/Tutor','Tamale','M','PhD Policy Studies and Management, 2008, Queens University','Lecturer / 3 years DL','Human Resource Management / Public Policy','Management and Organizational Behaviour','3 credit hours'],
 ];
 
 function addPLO(txt='') {
@@ -2930,23 +3034,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
   // Populate defaults
-  defaultPLOs.forEach(p => addPLO(p));
-  Object.entries(defaultCourses).forEach(([tid,rows]) => rows.forEach(r => addCourse(tid,...r)));
-  defaultElectives.forEach(r => addElective(...r));
-  addStaff(['Prof. Siaw Frimpong','Teaching Staff (HQ)','CoDE, Cape Coast','M','PhD Finance, 2014, Kenya','Full Professor / 21 years','Finance','Academic Writing','']);
-  addStaff(['Prof. Anokye M. Adam','Teaching Staff (HQ)','Cape Coast','M','PhD Finance, 2015, University of Venda','Full Professor / 15 years','Finance','Quantitative Data Analysis','6 credit hours']);
-  addStaff(['Dr. Paul Mensah Agyei','Teaching Staff (HQ)','Koforidua','M','PhD Marketing','Senior Lecturer','Marketing','Research Methods in Economics','6 credit hours']);
-  addStaff(['Dr. Daisy Ofosuhene','Teaching Staff (HQ)','Cape Coast','M','PhD Human Resource Development, 2017, UCC','Senior Lecturer / 10 years','Human Resource Development','Quantitative Data Analysis','3 credit hours']);
-  addStaff(['Dr. (Mrs) Joana Eva Dodoo','Teaching Staff (HQ)','Online (Kumasi/Ho)','F','PhD Human Resource Development, 2019, UCC','Senior Lecturer / 10 years','Human Resource Development','Academic Writing / Organizational Development','3 credit hours']);
-  addStaff(['Dr. Moses Segbenya','Teaching Staff (HQ)','','F','PhD Human Resource Management, 2021, Universiti Sains Malaysia','Senior Lecturer / 10 years','Human Resource Management','Qualitative Data Analysis','3 credit hours']);
-  addStaff(['Mr. Sampson Achina','Teaching Staff (HQ)','Kumasi','M','PhD Accounting Education, UCC (Ongoing)','Lecturer','Accounting','Accounting and Finance for Managers','3 credit hours']);
-  addStaff(['Dr. Isaac Kwadwo Anim','Teaching Staff (HQ)','All Centres','M','PhD (Economics)/LLB','Lecturer','Law / Economics','Legal Environment of Business / Managerial Economics','6 credit hours']);
-  addStaff(['Prof. Abraham Ansong','Teaching Staff (HQ)','Kumasi','M','PhD Development Studies, 2015, UCC','Associate Professor / 10 years','Development Studies','Management Theory and Practice / Corporate Governance and Ethics','6 credit hours']);
-  addStaff(['Prof. Nicodemus Osei Owusu','Teaching Staff (HQ)','Kumasi','M','PhD Public Policy & Management, 2011, University of Southampton','Senior Lecturer / 10 years','Organizational Management / Health Policy','International Business Management / MIS','6 credit hours']);
-  addStaff(['Dr. Mrs. Joan-Ark Manu Agyapong','Facilitator/Tutor','Sunyani','F','PhD Management, 2022, South Africa','Lecturer / 3 years DL','Organisational Behaviour','Management Theory and Practice','3 credit hours']);
-  addStaff(['Dr. Mrs. Anastasia Nana Ama Kumi-Korsah','Facilitator/Tutor','Wa and Bolga','F','PhD Management Education, 2022, UCC','Teaching Associate / 1 year DL','Management Education','Advanced Organizational Behaviour','3 credit hours']);
-  addStaff(['Dr. Nick Fobih','Facilitator/Tutor','Tamale','M','PhD Policy Studies and Management, 2008, Queens University','Lecturer / 3 years DL','Human Resource Management / Public Policy','Management and Organizational Behaviour','3 credit hours']);
-  updateEnrollTotals();
+  loadDefaults();
 
   // Check if already logged in (session persists)
   if (sbReady) {
