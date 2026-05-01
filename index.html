@@ -1247,7 +1247,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
    KEY:  Supabase dashboard → Settings → API → anon/public key
    ══════════════════════════════════════════════════════════════ */
 const SUPABASE_URL  = 'https://bhxkxpqtlqhhlyowgbmn.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJoeGt4cHF0bHFoaGx5b3dnYm1uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MjA2OTEsImV4cCI6MjA5Mjk5NjY5MX0.DKa04fr8lRYjJosa8lhPCGk87V7xJua-blpdVQ7D9Qg'; // ← REPLACE THIS before uploading
+const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY_HERE'; // ← REPLACE THIS before uploading
 
 /* Admin email list — these users see all submissions */
 const ADMIN_EMAILS  = [
@@ -1723,24 +1723,106 @@ async function loadAdminData() {
   if (filter !== 'all') query = query.eq('status', filter);
   const { data, error } = await query;
   const tbody = document.getElementById('admin-tbody');
-  if (error || !data) { tbody.innerHTML = `<tr><td colspan="7" style="color:var(--error);padding:16px;">Error loading: ${error?.message}</td></tr>`; return; }
+  if (error || !data) { tbody.innerHTML = `<tr><td colspan="7" style="color:var(--error);padding:16px;">Error: ${error?.message}</td></tr>`; return; }
   if (!data.length) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--gray);padding:24px;">No submissions found.</td></tr>`; return; }
-  tbody.innerHTML = data.map((row, i) => `
+  tbody.innerHTML = data.map((row, i) => {
+    const safeTitle = (row.programme_title||'').replace(/'/g,"\\'");
+    const safeId = row.id;
+    return `
     <tr>
       <td>${i+1}</td>
       <td>${row.user_email}</td>
-      <td>${row.programme_title || '—'}</td>
+      <td>
+        <span onclick="adminOpenForEdit('${safeId}')"
+          title="Click to open and edit this application"
+          style="color:var(--navy);font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px;display:inline-flex;align-items:center;gap:5px;">
+          &#9998; ${row.programme_title || '(Untitled)'}
+        </span>
+      </td>
       <td>${row.institution_name || '—'}</td>
       <td><span class="status-badge status-${row.status}">${row.status}</span></td>
       <td>${row.updated_at ? new Date(row.updated_at).toLocaleDateString('en-GB') : '—'}</td>
       <td style="display:flex;gap:4px;flex-wrap:wrap;">
-        <button class="btn btn-sm btn-success" onclick="adminApprove('${row.id}')" title="Approve">✅ Approve</button>
-        <button class="btn btn-sm btn-danger" onclick="adminReject('${row.id}')" title="Reject">❌ Reject</button>
-        <button class="btn btn-sm btn-outline" onclick="adminExportByUserId('${row.id}')" title="Export PDF">📄 PDF</button>
-        <button class="btn btn-sm btn-danger" onclick="adminDeleteApp('${row.id}','${(row.programme_title||'').replace(/'/g,'')}')" title="Delete">🗑 Delete</button>
+        <button class="btn btn-sm btn-success" onclick="adminApprove('${safeId}')">✅ Approve</button>
+        <button class="btn btn-sm btn-danger" onclick="adminReject('${safeId}')">❌ Reject</button>
+        <button class="btn btn-sm btn-outline" onclick="adminExportByUserId('${safeId}')">📄 PDF</button>
+        <button class="btn btn-sm btn-danger" onclick="adminDeleteApp('${safeId}','${safeTitle}')">🗑 Delete</button>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
+}
+
+/* ── Admin: open any application for editing ──────────────────────────── */
+async function adminOpenForEdit(rowId) {
+  if (!sbReady || !isAdmin) return;
+  showToast('Loading application...', '');
+  const { data, error } = await sb.from('applications')
+    .select('id, user_email, programme_title, form_data, status')
+    .eq('id', rowId).single();
+  if (error || !data) { showToast('Could not load: ' + (error?.message||'error'), 'err'); return; }
+
+  currentAppId = data.id;
+  clearForm(true);
+  if (data.form_data) {
+    restoreFormData(data.form_data);
+    restoreProgressFromData(data.form_data);
+  }
+  showAdminEditBanner(data.user_email, data.programme_title||'(Untitled)', data.status);
+  const navEl = document.querySelector('[data-sec="preamble"]');
+  show('preamble', navEl);
+  refreshAppSwitcher();
+  showToast('Editing: ' + (data.programme_title||'Untitled'), 'ok');
+}
+
+function showAdminEditBanner(userEmail, progTitle, status) {
+  const existing = document.getElementById('admin-edit-banner');
+  if (existing) existing.remove();
+  const banner = document.createElement('div');
+  banner.id = 'admin-edit-banner';
+  banner.style.cssText = [
+    'position:sticky','top:68px','z-index:90',
+    'background:linear-gradient(135deg,#7d2d00,#c0392b)',
+    'color:white','padding:10px 28px',
+    'display:flex','align-items:center','justify-content:space-between',
+    'gap:16px','font-size:13px','font-weight:600',
+    'box-shadow:0 2px 12px rgba(0,0,0,.25)',
+    'border-bottom:3px solid #ff6b35'
+  ].join(';');
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:20px;">&#9998;</span>
+      <div>
+        <div style="font-size:14px;font-weight:800;">ADMIN EDIT MODE</div>
+        <div style="font-size:11px;opacity:.85;">
+          Editing: <strong>${progTitle}</strong> &nbsp;&middot;&nbsp;
+          Owner: ${userEmail} &nbsp;&middot;&nbsp;
+          Status: <span style="text-transform:uppercase;letter-spacing:.5px;">${status}</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button onclick="saveToSupabase(true)"
+        style="background:white;color:#c0392b;border:none;padding:7px 18px;border-radius:7px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,.15);">
+        💾 Save Changes
+      </button>
+      <button onclick="exitAdminEdit()"
+        style="background:rgba(255,255,255,.15);color:white;border:1.5px solid rgba(255,255,255,.4);padding:7px 18px;border-radius:7px;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit;">
+        ← Back to Admin Panel
+      </button>
+    </div>
+  `;
+  const appBody = document.querySelector('.app-body');
+  appBody.parentNode.insertBefore(banner, appBody);
+}
+
+function exitAdminEdit() {
+  const banner = document.getElementById('admin-edit-banner');
+  if (banner) banner.remove();
+  currentAppId = null;
+  clearForm(true);
+  refreshAppSwitcher();
+  const adminNav = document.getElementById('admin-nav');
+  show('admin', adminNav);
 }
 
 async function adminApprove(rowId) {
@@ -1996,363 +2078,459 @@ async function exportPDF() {
   showToast('Generating PDF \u2014 please wait\u2026', '');
   try {
     const { jsPDF } = window.jspdf;
+
+    // ── We build a multi-section doc: portrait pages + landscape pages ──
+    // jsPDF supports multiple page orientations within one doc.
     const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
 
-    // \u2500\u2500 Page geometry \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-    const pw=210, ph=297;
-    const lm=25, rm=25, cw=pw-lm-rm;   // left/right margins, content width
-    const lineH = 5.8;                   // base line height (11pt)
-    const paraGap = 4;                   // gap between paragraphs
-    const itemGap = 2;                   // gap between numbered items
+    // Portrait geometry
+    const P = { pw:210, ph:297, lm:25, rm:25 };
+    P.cw = P.pw - P.lm - P.rm;
+
+    // Landscape geometry (A4 rotated)
+    const L = { pw:297, ph:210, lm:15, rm:15 };
+    L.cw = L.pw - L.lm - L.rm;
+
+    const lineH = 5.8;
+    const paraGap = 4;
+    const itemGap = 2;
     let y = 25;
     let pageNum = 1;
+    let isLandscape = false;
 
-    // \u2500\u2500 Colours \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    // Current page dimensions (switches when we add landscape page)
+    function geo() { return isLandscape ? L : P; }
+
+    // ── Colours ──────────────────────────────────────────────────
     const BLK=[0,0,0], GRY=[120,120,120], LTGRY=[200,200,200];
 
-    // \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-    // CORE RENDERING ENGINE
-    // \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-
+    // ── Footer ───────────────────────────────────────────────────
     function drawFooter() {
-      doc.setFontSize(9);
-      doc.setFont('helvetica','normal');
+      const g = geo();
+      doc.setFontSize(9); doc.setFont('helvetica','normal');
       doc.setTextColor(...GRY);
-      doc.setDrawColor(...LTGRY);
-      doc.setLineWidth(0.25);
-      doc.line(lm, ph-13, pw-rm, ph-13);
-      doc.text(pageNum + ' | P a g e', lm, ph-8);
-      doc.text('GTEC/INFO.A.7', pw-rm, ph-8, {align:'right'});
+      doc.setDrawColor(...LTGRY); doc.setLineWidth(0.25);
+      doc.line(g.lm, g.ph-13, g.pw-g.rm, g.ph-13);
+      doc.text(pageNum+' | P a g e', g.lm, g.ph-8);
+      doc.text('GTEC/INFO.A.7', g.pw-g.rm, g.ph-8, {align:'right'});
+      doc.setTextColor(...BLK);
     }
 
+    // ── New portrait page ─────────────────────────────────────────
     function newPage() {
       drawFooter();
-      doc.addPage();
-      pageNum++;
-      y = 25;
-      doc.setTextColor(...BLK);
+      doc.addPage('a4','portrait');
+      isLandscape = false;
+      pageNum++; y = 25;
+    }
+
+    // ── New landscape page ────────────────────────────────────────
+    function newLandscapePage() {
+      drawFooter();
+      doc.addPage('a4','landscape');
+      isLandscape = true;
+      pageNum++; y = 18;
     }
 
     function chk(need) {
-      if (y + need > ph - 20) newPage();
+      const g = geo();
+      if (y + need > g.ph - 20) newPage();
     }
 
-    // Justified paragraph — wraps text with full justification
+    // ── Justified paragraph ───────────────────────────────────────
     function justifiedPara(text, opts) {
       opts = opts || {};
-      const x      = lm + (opts.indent || 0);
-      const mw     = cw  - (opts.indent || 0);
-      const sz     = opts.sz || 11;
-      const bold   = opts.bold   || false;
-      const ital   = opts.ital   || false;
-      const center = opts.center || false;
-      const after  = opts.after !== undefined ? opts.after : paraGap;
+      const g   = geo();
+      const x   = g.lm + (opts.indent || 0);
+      const mw  = g.cw  - (opts.indent || 0);
+      const sz  = opts.sz || 11;
+      const bold= opts.bold || false;
+      const after = opts.after !== undefined ? opts.after : paraGap;
 
       doc.setFontSize(sz);
-      doc.setFont('helvetica', bold && ital ? 'bolditalic' : bold ? 'bold' : ital ? 'italic' : 'normal');
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
       doc.setTextColor(...BLK);
 
-      const words = String(text || '').split(' ').filter(w => w.length > 0);
+      const words = String(text||'').split(' ').filter(w=>w.length>0);
       if (!words.length) { y += after; return; }
-
-      // Build lines by greedily fitting words
-      const lines = [];
-      let cur = '';
-      words.forEach(word => {
-        const test = cur ? cur + ' ' + word : word;
-        if (doc.getTextWidth(test) <= mw) {
-          cur = test;
-        } else {
-          if (cur) lines.push(cur);
-          cur = word;
-        }
+      const lines = []; let cur = '';
+      words.forEach(w => {
+        const t = cur ? cur+' '+w : w;
+        if (doc.getTextWidth(t) <= mw) { cur = t; }
+        else { if (cur) lines.push(cur); cur = w; }
       });
       if (cur) lines.push(cur);
 
       lines.forEach((line, li) => {
-        chk(lineH + 1);
-        const isLast = li === lines.length - 1;
-        if (center) {
-          doc.text(line, pw / 2, y, {align:'center'});
-        } else if (!isLast && !center) {
-          // Full justification: distribute extra space between words
-          const lineWords = line.split(' ');
-          if (lineWords.length > 1) {
-            const totalTextW = lineWords.reduce((s, w) => s + doc.getTextWidth(w), 0);
-            const spaces = lineWords.length - 1;
-            const spaceW = (mw - totalTextW) / spaces;
-            let cx = x;
-            lineWords.forEach((w, wi) => {
-              doc.text(w, cx, y);
-              cx += doc.getTextWidth(w) + (wi < spaces ? spaceW : 0);
-            });
-          } else {
-            doc.text(line, x, y);
-          }
+        chk(lineH+1);
+        const isLast = li===lines.length-1;
+        const lWords = line.split(' ');
+        if (!isLast && lWords.length>1) {
+          const tw = lWords.reduce((s,w)=>s+doc.getTextWidth(w),0);
+          const sw = (mw-tw)/(lWords.length-1);
+          let cx=x;
+          lWords.forEach((w,wi)=>{
+            doc.text(w,cx,y);
+            cx += doc.getTextWidth(w)+(wi<lWords.length-1?sw:0);
+          });
         } else {
-          // Last line or single-word: left-align
-          doc.text(line, x, y);
+          doc.text(line, opts.center ? g.pw/2 : x, y, opts.center?{align:'center'}:undefined);
         }
         y += lineH;
       });
       y += after;
     }
 
-    // Bold + underline section heading (e.g. "A.  PREAMBLE")
+    // ── Section heading (bold + underline) ─────────────────────────
     function secHead(text) {
-      chk(16);
-      y += 3;
-      doc.setFontSize(11);
-      doc.setFont('helvetica','bold');
-      doc.setTextColor(...BLK);
-      doc.text(text, lm, y);
-      const tw = doc.getTextWidth(text);
-      doc.setDrawColor(...BLK);
-      doc.setLineWidth(0.35);
-      doc.line(lm, y + 0.9, lm + tw, y + 0.9);
-      y += lineH + 4;
+      chk(16); y+=3;
+      doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
+      doc.text(text, geo().lm, y);
+      doc.setDrawColor(...BLK); doc.setLineWidth(0.35);
+      doc.line(geo().lm, y+0.9, geo().lm+doc.getTextWidth(text), y+0.9);
+      y += lineH+4;
     }
 
-    // Bold + underline sub-heading (e.g. "1.  Eligibility")
     function subHead(text, indent) {
-      indent = indent || 0;
-      chk(12);
-      y += 2;
-      doc.setFontSize(11);
-      doc.setFont('helvetica','bold');
-      doc.setTextColor(...BLK);
-      doc.text(text, lm + indent, y);
-      const tw = doc.getTextWidth(text);
-      doc.setDrawColor(...BLK);
-      doc.setLineWidth(0.25);
-      doc.line(lm + indent, y + 0.9, lm + indent + tw, y + 0.9);
-      y += lineH + 3;
+      indent=indent||0; chk(12); y+=2;
+      doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
+      doc.text(text, geo().lm+indent, y);
+      doc.setDrawColor(...BLK); doc.setLineWidth(0.25);
+      doc.line(geo().lm+indent, y+0.9, geo().lm+indent+doc.getTextWidth(text), y+0.9);
+      y += lineH+3;
     }
 
-    // Numbered item with full justification: "1.1.  body text..."
+    // ── Numbered item with justification ───────────────────────────
     function numItem(num, bodyText, indent) {
-      indent = indent || 0;
+      indent=indent||0;
+      const g=geo();
+      const numW=doc.getTextWidth(num+'  ');
+      const ti=indent+numW;
+      const mw=g.cw-ti;
       chk(10);
-      const numW = doc.getTextWidth(num + '  ');
-      const textIndent = indent + numW;
-      const mw = cw - textIndent;
-
-      doc.setFontSize(11);
-      doc.setFont('helvetica','normal');
-      doc.setTextColor(...BLK);
-      doc.text(num, lm + indent, y);
-
-      const words = String(bodyText || '').split(' ').filter(w => w.length > 0);
-      const lines = [];
-      let cur = '';
-      words.forEach(w => {
-        const test = cur ? cur + ' ' + w : w;
-        if (doc.getTextWidth(test) <= mw) { cur = test; }
-        else { if (cur) lines.push(cur); cur = w; }
+      doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(...BLK);
+      doc.text(num, g.lm+indent, y);
+      const words=String(bodyText||'').split(' ').filter(w=>w.length>0);
+      const lines=[]; let cur='';
+      words.forEach(w=>{ const t=cur?cur+' '+w:w; if(doc.getTextWidth(t)<=mw){cur=t;}else{if(cur)lines.push(cur);cur=w;} });
+      if(cur) lines.push(cur);
+      lines.forEach((line,li)=>{
+        chk(lineH+1);
+        const isLast=li===lines.length-1;
+        const lWords=line.split(' ');
+        if(!isLast && lWords.length>1){
+          const tw=lWords.reduce((s,w)=>s+doc.getTextWidth(w),0);
+          const sw=(mw-tw)/(lWords.length-1);
+          let cx=g.lm+ti;
+          lWords.forEach((w,wi)=>{ doc.text(w,cx,y); cx+=doc.getTextWidth(w)+(wi<lWords.length-1?sw:0); });
+        } else { doc.text(line, g.lm+ti, y); }
+        y+=lineH;
       });
-      if (cur) lines.push(cur);
-
-      lines.forEach((line, li) => {
-        chk(lineH + 1);
-        const isLast = li === lines.length - 1;
-        if (!isLast && line.split(' ').length > 1) {
-          const lWords = line.split(' ');
-          const totalW = lWords.reduce((s, w) => s + doc.getTextWidth(w), 0);
-          const spaceW = (mw - totalW) / (lWords.length - 1);
-          let cx = lm + textIndent;
-          lWords.forEach((w, wi) => {
-            doc.text(w, cx, y);
-            cx += doc.getTextWidth(w) + (wi < lWords.length - 1 ? spaceW : 0);
-          });
-        } else {
-          doc.text(line, lm + textIndent, y);
-        }
-        y += lineH;
-      });
-      y += itemGap;
+      y+=itemGap;
     }
 
-    // Dotted answer lines (…………………………)
+    // ── Dotted lines ──────────────────────────────────────────────
     function dotLines(count, indent) {
-      indent = indent || 0;
-      const dotStr = '\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026';
-      for (let i = 0; i < count; i++) {
+      indent=indent||0;
+      const g=geo();
+      const dotStr='\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026';
+      for(let i=0;i<count;i++){
         chk(lineH);
-        doc.setFontSize(11);
-        doc.setFont('helvetica','normal');
-        doc.setTextColor(...BLK);
-        const d = doc.splitTextToSize(dotStr, cw - indent)[0];
-        doc.text(d, lm + indent, y);
-        y += lineH;
+        doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(...BLK);
+        doc.text(doc.splitTextToSize(dotStr, g.cw-indent)[0], g.lm+indent, y);
+        y+=lineH;
       }
-      y += 2;
+      y+=2;
     }
 
-    // Inline label + value (or dots): "2.1.  Name: [value or dots]"
+    // ── Inline field ──────────────────────────────────────────────
     function inlineField(label, value, indent) {
-      indent = indent || 0;
-      chk(lineH + 2);
-      doc.setFontSize(11);
-      doc.setFont('helvetica','normal');
-      doc.setTextColor(...BLK);
-      const lw = doc.getTextWidth(label + ' ');
-      doc.text(label, lm + indent, y);
-      const rem = cw - indent - lw - 1;
-      if (value && value.trim()) {
-        const vLines = doc.splitTextToSize(value.trim(), rem);
-        doc.text(vLines[0], lm + indent + lw + 1, y);
-        if (vLines.length > 1) {
-          for (let li = 1; li < vLines.length; li++) {
-            y += lineH;
-            chk(lineH);
-            doc.text(vLines[li], lm + indent + lw + 1, y);
-          }
-        }
+      indent=indent||0; chk(lineH+2);
+      const g=geo();
+      doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(...BLK);
+      const lw=doc.getTextWidth(label+' ');
+      doc.text(label, g.lm+indent, y);
+      const rem=g.cw-indent-lw-1;
+      if(value&&value.trim()){
+        const vl=doc.splitTextToSize(value.trim(),rem);
+        doc.text(vl[0], g.lm+indent+lw+1, y);
+        if(vl.length>1){ for(let li=1;li<vl.length;li++){y+=lineH;chk(lineH);doc.text(vl[li],g.lm+indent+lw+1,y);} }
       } else {
-        const dotStr = '\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026';
-        doc.text(doc.splitTextToSize(dotStr, rem)[0], lm + indent + lw + 1, y);
+        const dots='\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026\u2026';
+        doc.text(doc.splitTextToSize(dots,rem)[0], g.lm+indent+lw+1, y);
       }
-      y += lineH + 2;
+      y+=lineH+2;
     }
 
-    // Checkbox row with BOLD visible tick mark
-    // tickChar rendered large and bold so it is unmistakably visible
+    // ── CHECKBOX ROW — draws X-lines for tick (no unicode) ─────────
+    // Uses straight lines to draw a real tick: visually bold, always renders
+    function drawTick(bx, by, bw, bh) {
+      // Bold checkmark: short left stroke + long right stroke
+      // Left leg: bottom-left to middle-bottom
+      const x1 = bx + bw*0.15;
+      const y1 = by + bh*0.52;
+      const xm = bx + bw*0.40;
+      const ym = by + bh*0.82;
+      // Right leg: middle-bottom to top-right
+      const x2 = bx + bw*0.88;
+      const y2 = by + bh*0.18;
+
+      // Draw 3 passes for visual boldness
+      doc.setDrawColor(0,0,0);
+      [1.4, 1.0, 0.7].forEach((lw, i) => {
+        const off = i * 0.15;
+        doc.setLineWidth(lw);
+        doc.line(x1, y1+off, xm, ym+off);
+        doc.line(xm, ym+off, x2, y2+off);
+      });
+      doc.setLineWidth(0.3); // reset
+    }
+
     function checkboxRow(label, yesChecked, noChecked, indent) {
       indent = indent || 0;
-      chk(lineH + 2);
-      doc.setFontSize(11);
-      doc.setFont('helvetica','normal');
+      chk(lineH + 6);
+      const g = geo();
+      const bw = 5.5, bh = 5.5;
+      const baseY = y;
+
+      // Label
+      doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(...BLK);
+      doc.text(label, g.lm + indent, baseY);
+
+      let cx = g.lm + indent + doc.getTextWidth(label) + 8;
+
+      // ── YES ──
+      doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(...BLK);
+      doc.text('Yes', cx, baseY);
+      cx += doc.getTextWidth('Yes') + 4;
+      const yBoxY = baseY - bh + 0.5;
+      // Draw box with white fill first so tick is on clean background
+      doc.setFillColor(255,255,255);
+      doc.setDrawColor(0,0,0); doc.setLineWidth(0.6);
+      doc.rect(cx, yBoxY, bw, bh, 'FD');
+      if (yesChecked) drawTick(cx, yBoxY, bw, bh);
+      cx += bw + 14;
+
+      // ── NO ──
+      doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(...BLK);
+      doc.text('No', cx, baseY);
+      cx += doc.getTextWidth('No') + 4;
+      const nBoxY = baseY - bh + 0.5;
+      doc.setFillColor(255,255,255);
+      doc.setDrawColor(0,0,0); doc.setLineWidth(0.6);
+      doc.rect(cx, nBoxY, bw, bh, 'FD');
+      if (noChecked) drawTick(cx, nBoxY, bw, bh);
+
+      // Reset state
       doc.setTextColor(...BLK);
-      doc.text(label, lm + indent, y);
-
-      let cx = lm + indent + doc.getTextWidth(label) + 6;
-      const bx = 4, by = 4;   // box size
-
-      // YES box
-      doc.text('Yes', cx, y);
-      cx += doc.getTextWidth('Yes') + 3;
-      doc.setDrawColor(...BLK);
-      doc.setLineWidth(0.4);
-      doc.rect(cx, y - by + 0.5, bx, by);
-      if (yesChecked) {
-        // Large bold tick inside box
-        doc.setFontSize(9);
-        doc.setFont('helvetica','bold');
-        doc.setTextColor(0, 0, 0);
-        doc.text('\u2713', cx + 0.4, y + 0.2);
-        // Draw a second pass slightly offset for extra weight
-        doc.text('\u2713', cx + 0.5, y + 0.2);
-        doc.setFontSize(11);
-        doc.setFont('helvetica','normal');
-        doc.setTextColor(...BLK);
-      }
-      cx += bx + 10;
-
-      // NO box
-      doc.text('No', cx, y);
-      cx += doc.getTextWidth('No') + 3;
-      doc.setDrawColor(...BLK);
-      doc.setLineWidth(0.4);
-      doc.rect(cx, y - by + 0.5, bx, by);
-      if (noChecked) {
-        doc.setFontSize(9);
-        doc.setFont('helvetica','bold');
-        doc.setTextColor(0, 0, 0);
-        doc.text('\u2713', cx + 0.4, y + 0.2);
-        doc.text('\u2713', cx + 0.5, y + 0.2);
-        doc.setFontSize(11);
-        doc.setFont('helvetica','normal');
-        doc.setTextColor(...BLK);
-      }
-      y += lineH + 3;
-    }
-
-    // Filled answer: if value exists render it justified; otherwise render dot lines
-    function answerField(value, dotCount, indent) {
-      if (value && value.trim()) {
-        justifiedPara(value.trim(), {indent: indent || 0, after: paraGap});
-      } else {
-        dotLines(dotCount || 4, indent || 0);
-      }
-    }
-
-    // Simple bordered table
-    function drawTable(headers, rows, colWidths) {
-      const rowH = 7, hdrH = 8;
-      const tw = colWidths.reduce((a,b) => a+b, 0);
-      chk(hdrH + Math.max(rows.length,2)*rowH + 6);
-
-      // Header
-      doc.setFillColor(235,235,235);
       doc.setDrawColor(...BLK);
       doc.setLineWidth(0.3);
-      doc.rect(lm, y, tw, hdrH, 'FD');
-      let tx = lm;
-      doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
-      headers.forEach((h, i) => {
-        const hl = doc.splitTextToSize(h, colWidths[i]-2);
-        hl.slice(0,2).forEach((hl2, hi) => doc.text(hl2, tx+2, y+4+hi*3.5));
-        if (i < headers.length-1) doc.line(tx+colWidths[i], y, tx+colWidths[i], y+hdrH);
-        tx += colWidths[i];
-      });
-      y += hdrH;
-
-      const displayRows = rows && rows.length ? rows : [Array(headers.length).fill(''), Array(headers.length).fill('')];
-      displayRows.forEach((row, ri) => {
-        chk(rowH+1);
-        if (ri%2===0){doc.setFillColor(250,250,250);doc.rect(lm,y,tw,rowH,'F');}
-        doc.setDrawColor(...BLK); doc.setLineWidth(0.2);
-        doc.rect(lm, y, tw, rowH);
-        tx = lm;
-        doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...BLK);
-        row.forEach((cell,i) => {
-          const cl = doc.splitTextToSize(String(cell||''), colWidths[i]-2);
-          if (cl[0]) doc.text(cl[0], tx+2, y+4.8);
-          if (i<row.length-1) doc.line(tx+colWidths[i], y, tx+colWidths[i], y+rowH);
-          tx += colWidths[i];
-        });
-        y += rowH;
-      });
-      y += 5;
+      y = baseY + lineH + 3;
     }
 
-    // Table 4 — Staff Details (landscape-style wide table)
-    function staffTable4() {
-      newPage();
-      doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
-      doc.text('Table 4: Staff Details', pw/2, y, {align:'center'});
-      const tw2 = doc.getTextWidth('Table 4: Staff Details');
-      doc.setDrawColor(...BLK); doc.setLineWidth(0.3);
-      doc.line(pw/2-tw2/2, y+0.9, pw/2+tw2/2, y+0.9);
-      y += 10;
+    // ── Answer field ──────────────────────────────────────────────
+    function answerField(value, dotCount, indent) {
+      if(value&&value.trim()){
+        justifiedPara(value.trim(),{indent:indent||0, after:paraGap});
+      } else {
+        dotLines(dotCount||4, indent||0);
+      }
+    }
 
-      const cats = [
+    // ── Portrait table ─────────────────────────────────────────────
+    function drawTable(headers, rows, colWidths) {
+      const g=geo();
+      const rowH=7, hdrH=9;
+      const tw=colWidths.reduce((a,b)=>a+b,0);
+      chk(hdrH+Math.max((rows&&rows.length)||2,2)*rowH+6);
+      doc.setFillColor(230,230,230); doc.setDrawColor(...BLK); doc.setLineWidth(0.3);
+      doc.rect(g.lm,y,tw,hdrH,'FD');
+      let tx=g.lm;
+      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
+      headers.forEach((h,i)=>{
+        const hl=doc.splitTextToSize(h,colWidths[i]-2);
+        hl.slice(0,2).forEach((hl2,hi)=>doc.text(hl2,tx+2,y+4+hi*3.5));
+        if(i<headers.length-1){doc.setDrawColor(...BLK);doc.line(tx+colWidths[i],y,tx+colWidths[i],y+hdrH);}
+        tx+=colWidths[i];
+      });
+      y+=hdrH;
+      const disp=(rows&&rows.length)?rows:[Array(headers.length).fill(''),Array(headers.length).fill('')];
+      disp.forEach((row,ri)=>{
+        chk(rowH+1);
+        if(ri%2===0){doc.setFillColor(250,250,250);doc.rect(g.lm,y,tw,rowH,'F');}
+        doc.setDrawColor(...BLK);doc.setLineWidth(0.2);doc.rect(g.lm,y,tw,rowH);
+        tx=g.lm; doc.setFontSize(8);doc.setFont('helvetica','normal');doc.setTextColor(...BLK);
+        row.forEach((cell,i)=>{
+          const cl=doc.splitTextToSize(String(cell||''),colWidths[i]-2);
+          if(cl[0]) doc.text(cl[0],tx+2,y+4.8);
+          if(i<row.length-1){doc.setDrawColor(...BLK);doc.line(tx+colWidths[i],y,tx+colWidths[i],y+rowH);}
+          tx+=colWidths[i];
+        });
+        y+=rowH;
+      });
+      y+=5;
+    }
+
+    // ── Enrollment Table — landscape ───────────────────────────────
+    function enrollmentTable() {
+      newLandscapePage();
+      const g=L;
+      doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
+      doc.text('Table 1: Projected Total Student Enrollment', g.pw/2, y, {align:'center'});
+      y+=9;
+
+      const cw=[55,20,20,20,20,20,20,20,20,20]; // centres(55) + 9 cols of 20
+      const tw=cw.reduce((a,b)=>a+b,0);
+      const rH=8;
+
+      // Row 1 header — year groups
+      doc.setFillColor(220,220,220); doc.setDrawColor(...BLK); doc.setLineWidth(0.3);
+      doc.rect(g.lm,y,tw,rH,'FD');
+      doc.setFontSize(9); doc.setFont('helvetica','bold');
+      doc.text('Programme Centre(s)', g.lm+2, y+5.5);
+      let currentYear = new Date().getFullYear();
+      [{x:g.lm+cw[0],        label:'Year 1 ('+currentYear+'/'+(currentYear+1)+')', span:3},
+       {x:g.lm+cw[0]+60,     label:'Year 2 ('+(currentYear+1)+'/'+(currentYear+2)+')', span:3},
+       {x:g.lm+cw[0]+120,    label:'Year 3 ('+(currentYear+2)+'/'+(currentYear+3)+')', span:3}
+      ].forEach(({x,label,span})=>{
+        doc.text(label, x+(span*20)/2, y+5.5, {align:'center'});
+        doc.setDrawColor(...BLK); doc.line(x,y,x,y+rH);
+      });
+      doc.line(g.lm+tw,y,g.lm+tw,y+rH);
+      y+=rH;
+
+      // Row 2 header — Female/Male/Total
+      doc.setFillColor(235,235,235); doc.rect(g.lm,y,tw,rH,'FD');
+      let tx=g.lm+cw[0];
+      doc.setFontSize(8.5);
+      ['Female','Male','Total','Female','Male','Total','Female','Male','Total'].forEach((h,i)=>{
+        doc.text(h, tx+10, y+5.5, {align:'center'});
+        doc.setDrawColor(...BLK); doc.line(tx,y,tx,y+rH);
+        tx+=20;
+      });
+      doc.line(g.lm,y,g.lm,y+rH); doc.line(g.lm+tw,y,g.lm+tw,y+rH);
+      y+=rH;
+
+      // Data rows
+      const enRows=[];
+      document.querySelectorAll('#enroll-body tr').forEach(tr=>{
+        const ins=tr.querySelectorAll('input'); if(ins.length) enRows.push([...ins].map(i=>i.value||''));
+      });
+      const disp=enRows.length?enRows:[Array(10).fill(''),Array(10).fill(''),Array(10).fill(''),Array(10).fill('')];
+      disp.forEach((row,ri)=>{
+        if(ri%2===0){doc.setFillColor(250,250,250);doc.rect(g.lm,y,tw,rH,'F');}
+        doc.setDrawColor(...BLK);doc.setLineWidth(0.2);doc.rect(g.lm,y,tw,rH);
+        doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(...BLK);
+        doc.text(String(row[0]||'').substring(0,28), g.lm+2, y+5.5);
+        tx=g.lm+cw[0];
+        for(let c=1;c<=9;c++){
+          doc.text(String(row[c]||''), tx+10, y+5.5, {align:'center'});
+          doc.setDrawColor(...BLK); doc.line(tx,y,tx,y+rH);
+          tx+=20;
+        }
+        doc.line(g.lm+tw,y,g.lm+tw,y+rH);
+        y+=rH;
+      });
+      // Totals row
+      doc.setFillColor(230,230,230); doc.rect(g.lm,y,tw,rH,'FD');
+      doc.setFontSize(9); doc.setFont('helvetica','bold');
+      doc.text('TOTAL', g.lm+2, y+5.5);
+      const totals=[0,0,0,0,0,0,0,0,0];
+      disp.forEach(row=>{ for(let c=1;c<=9;c++) totals[c-1]+=(parseInt(row[c])||0); });
+      tx=g.lm+cw[0];
+      totals.forEach((t,i)=>{ doc.text(String(t||''), tx+10, y+5.5, {align:'center'}); doc.line(tx,y,tx,y+rH); tx+=20; });
+      doc.line(g.lm+tw,y,g.lm+tw,y+rH);
+      y+=rH+3;
+      newPage(); // return to portrait
+    }
+
+    // ── Course schedule table — landscape ──────────────────────────
+    function courseTable(label, tid) {
+      const rows=[];
+      document.querySelectorAll('#'+tid+' tr').forEach(tr=>{
+        const ins=tr.querySelectorAll('input,select');
+        if(ins.length>=3) rows.push([[...ins][0]?.value||'',[...ins][1]?.value||'',[...ins][2]?.value||'',[...ins][3]?.value||'Core']);
+      });
+      if(!rows.length) return;
+
+      newLandscapePage();
+      const g=L;
+      doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
+      doc.text(label, g.pw/2, y, {align:'center'});
+      y+=9;
+
+      const codeW=28, credW=20, typeW=24, titleW=g.cw-codeW-credW-typeW;
+      drawTableOnPage(['Course Code','Course Title','Credit Hours','Type'], rows, [codeW,titleW,credW,typeW], g);
+      newPage();
+    }
+
+    // ── Generic table on a given page geometry ─────────────────────
+    function drawTableOnPage(headers, rows, colWidths, g) {
+      const rowH=8, hdrH=10;
+      const tw=colWidths.reduce((a,b)=>a+b,0);
+      doc.setFillColor(220,220,220); doc.setDrawColor(...BLK); doc.setLineWidth(0.3);
+      doc.rect(g.lm,y,tw,hdrH,'FD');
+      let tx=g.lm;
+      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
+      headers.forEach((h,i)=>{
+        const hl=doc.splitTextToSize(h,colWidths[i]-2);
+        hl.slice(0,2).forEach((hl2,hi)=>doc.text(hl2,tx+2,y+4+hi*3.8));
+        if(i<headers.length-1){doc.line(tx+colWidths[i],y,tx+colWidths[i],y+hdrH);}
+        tx+=colWidths[i];
+      });
+      y+=hdrH;
+      rows.forEach((row,ri)=>{
+        if(y+rowH>g.ph-20){ drawFooter(); doc.addPage('a4','landscape'); pageNum++; y=18; }
+        if(ri%2===0){doc.setFillColor(250,250,250);doc.rect(g.lm,y,tw,rowH,'F');}
+        doc.setDrawColor(...BLK);doc.setLineWidth(0.2);doc.rect(g.lm,y,tw,rowH);
+        tx=g.lm; doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(...BLK);
+        row.forEach((cell,i)=>{
+          const cl=doc.splitTextToSize(String(cell||''),colWidths[i]-2);
+          if(cl[0]) doc.text(cl[0],tx+2,y+5.5);
+          if(i<row.length-1){doc.line(tx+colWidths[i],y,tx+colWidths[i],y+rowH);}
+          tx+=colWidths[i];
+        });
+        y+=rowH;
+      });
+      y+=5;
+    }
+
+    // ── Staff Table 4 — landscape ──────────────────────────────────
+    function staffTable4() {
+      newLandscapePage();
+      const g=L;
+      doc.setFontSize(12); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
+      doc.text('Table 4: Staff Details', g.pw/2, y, {align:'center'});
+      const tw2=doc.getTextWidth('Table 4: Staff Details');
+      doc.setDrawColor(...BLK); doc.setLineWidth(0.3);
+      doc.line(g.pw/2-tw2/2, y+0.9, g.pw/2+tw2/2, y+0.9);
+      y+=11;
+
+      const cats=[
         {label:'Teaching Staff\n(operational\nheadquarters)', rows:5},
         {label:'Facilitators /\nTutors\n(study centres)', rows:4},
         {label:'Academic\nSupport Staff', rows:4},
         {label:'Administrative\nStaff', rows:4},
         {label:'Other Support\nStaff', rows:3},
       ];
-      const hdrs=['Staff Category','Name of Staff','DL Centre Assigned','Gender','Highest Qualification / Year Obtained & Location','Rank / Years of Teaching Experience in DL','Area of Specialization','Courses /Modules Taught / To Teach','Workload (Hrs/Week)'];
-      const cw9=[26,20,15,10,30,22,18,20,19];
-      const tw=cw9.reduce((a,b)=>a+b,0);
-      const rowH=7, hdrH=10;
+      // Column widths for landscape: total = L.cw = 267mm
+      const cw9=[28,24,18,12,40,28,20,55,42];
+      const tw=cw9.reduce((a,b)=>a+b,0); // =267
+      const hdrs=['Staff Category','Name of Staff','DL Centre Assigned','Gender','Highest Qualification / Year Obtained & Location','Rank / Years of Teaching Experience in DL','Area of Specialization','Courses / Modules Taught / To Teach','Workload (Hours Per Week)'];
+      const rowH=8, hdrH=12;
 
-      // Header
-      doc.setFillColor(230,230,230);
-      doc.setDrawColor(...BLK); doc.setLineWidth(0.3);
-      doc.rect(lm, y, tw, hdrH, 'FD');
-      let tx=lm;
-      doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
+      doc.setFillColor(220,220,220); doc.setDrawColor(...BLK); doc.setLineWidth(0.35);
+      doc.rect(g.lm,y,tw,hdrH,'FD');
+      let tx=g.lm;
+      doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
       hdrs.forEach((h,i)=>{
-        const hl=doc.splitTextToSize(h, cw9[i]-1.5);
-        hl.slice(0,2).forEach((hl2,hi)=>doc.text(hl2, tx+1.2, y+3.5+hi*3.2));
+        const hl=doc.splitTextToSize(h,cw9[i]-1.5);
+        hl.slice(0,2).forEach((hl2,hi)=>doc.text(hl2,tx+1.5,y+4+hi*3.8));
         if(i<hdrs.length-1){doc.setDrawColor(...BLK);doc.line(tx+cw9[i],y,tx+cw9[i],y+hdrH);}
         tx+=cw9[i];
       });
       y+=hdrH;
 
-      // Collect staff data
       const staffRows=[];
       document.querySelectorAll('#staff-container .rep-item').forEach(item=>{
         const ins=item.querySelectorAll('input,select');
@@ -2361,26 +2539,33 @@ async function exportPDF() {
       let srIdx=0;
 
       cats.forEach(cat=>{
-        chk(rowH*cat.rows+2);
         const catH=rowH*cat.rows;
-        // Category label cell (merged)
-        doc.setFillColor(245,245,245);
-        doc.setDrawColor(...BLK); doc.setLineWidth(0.2);
-        doc.rect(lm, y, cw9[0], catH, 'FD');
-        doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
-        const catLines=cat.label.split('\n');
-        catLines.forEach((cl,ci)=>doc.text(cl, lm+1.5, y+4+ci*4));
+        if(y+catH>g.ph-20){
+          drawFooter(); doc.addPage('a4','landscape'); pageNum++; y=18;
+          // Repeat header on continuation page
+          doc.setFillColor(220,220,220); doc.setDrawColor(...BLK); doc.setLineWidth(0.3);
+          doc.rect(g.lm,y,tw,hdrH,'FD');
+          tx=g.lm; doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+          hdrs.forEach((h,i)=>{ const hl=doc.splitTextToSize(h,cw9[i]-1.5); hl.slice(0,2).forEach((hl2,hi)=>doc.text(hl2,tx+1.5,y+4+hi*3.8)); if(i<hdrs.length-1)doc.line(tx+cw9[i],y,tx+cw9[i],y+hdrH); tx+=cw9[i]; });
+          y+=hdrH;
+        }
+
+        // Draw merged category cell
+        doc.setFillColor(242,242,242); doc.setDrawColor(...BLK); doc.setLineWidth(0.2);
+        doc.rect(g.lm,y,cw9[0],catH,'FD');
+        doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
+        cat.label.split('\n').forEach((cl,ci)=>doc.text(cl,g.lm+1.5,y+5+ci*4.5));
 
         for(let r=0;r<cat.rows;r++){
           const rowData=staffRows[srIdx++]||[];
-          tx=lm+cw9[0];
+          tx=g.lm+cw9[0];
           cw9.slice(1).forEach((coli,ci)=>{
-            doc.setDrawColor(...BLK); doc.setLineWidth(0.2);
-            doc.rect(tx, y, coli, rowH);
+            doc.setDrawColor(...BLK); doc.setLineWidth(0.2); doc.rect(tx,y,coli,rowH);
             const val=rowData[ci+1]||'';
             if(val){
-              doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(...BLK);
-              doc.text(String(val).substring(0,18), tx+1.2, y+4.8);
+              doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(...BLK);
+              const vl=doc.splitTextToSize(String(val),coli-2);
+              doc.text(vl[0]||'', tx+1.5, y+5.2);
             }
             tx+=coli;
           });
@@ -2390,154 +2575,108 @@ async function exportPDF() {
 
       y+=6;
       doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(...BLK);
-      doc.text('Note:', lm, y); y+=6;
+      doc.text('Note:', g.lm, y); y+=5;
       ['Higher order ranks should be filled first.',
        'Attach list of publications and technical reports of staff (where applicable).',
        'Indicate additional staff for the programme (if any).'].forEach((n,i)=>{
-        chk(6); doc.text((i+1)+'.  '+n, lm+4, y); y+=5.5;
+        doc.text((i+1)+'.  '+n, g.lm+4, y); y+=5.5;
       });
+      newPage(); // return to portrait
     }
 
-    // \u2500\u2500 Data helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    // ── Data helpers ──────────────────────────────────────────────
     function g(id){ const e=document.getElementById(id); return e?e.value.trim():''; }
     function radio(name){ const e=document.querySelector('input[name="'+name+'"]:checked'); return e?e.value:''; }
 
-    // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+    // ════════════════════════════════════════════════════════════
     // COVER PAGE
-    // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+    // ════════════════════════════════════════════════════════════
     doc.setDrawColor(...BLK); doc.setLineWidth(0.5);
-    doc.rect(15, 15, pw-30, ph-30);   // outer border
-
-    y = 70;
+    doc.rect(15,15,P.pw-30,P.ph-30);
+    y=70;
     doc.setFontSize(14); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
     ['GHANA TERTIARY EDUCATION COMMISSION (GTEC)','GHANA'].forEach(t=>{
       const tw=doc.getTextWidth(t);
-      doc.text(t, pw/2, y, {align:'center'});
-      doc.setLineWidth(0.4);
-      doc.line(pw/2-tw/2, y+1, pw/2+tw/2, y+1);
-      y+=11;
+      doc.text(t,P.pw/2,y,{align:'center'});
+      doc.setLineWidth(0.4); doc.line(P.pw/2-tw/2,y+1,P.pw/2+tw/2,y+1); y+=11;
     });
-
     y+=24;
     doc.setFontSize(12); doc.setFont('helvetica','normal');
-    ['INSTRUMENT FOR',
-     'ASSESSING DISTANCE EDUCATION PROGRAMMES FOR',
-     'ACCREDITATION AND QUALITY ASSURANCE',
-     'GTEC/INFO.A.7'].forEach(t=>{
+    ['INSTRUMENT FOR','ASSESSING DISTANCE EDUCATION PROGRAMMES FOR','ACCREDITATION AND QUALITY ASSURANCE','GTEC/INFO.A.7'].forEach(t=>{
       const tw=doc.getTextWidth(t);
-      doc.text(t, pw/2, y, {align:'center'});
-      doc.setLineWidth(0.3);
-      doc.line(pw/2-tw/2, y+1, pw/2+tw/2, y+1);
-      y+=9;
+      doc.text(t,P.pw/2,y,{align:'center'});
+      doc.setLineWidth(0.3); doc.line(P.pw/2-tw/2,y+1,P.pw/2+tw/2,y+1); y+=9;
     });
-
     y+=24;
     doc.setFontSize(12); doc.setFont('helvetica','bold');
-    doc.text('\u00a9 GTEC 2018', pw/2, y, {align:'center'});
-    // no footer on cover page
+    doc.text('\u00a9 GTEC 2018',P.pw/2,y,{align:'center'});
 
-    // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
-    // PAGE 1 \u2014 A. PREAMBLE
-    // \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+    // ════════════════════════════════════════════════════════════
+    // PAGE 1 — A. PREAMBLE
+    // ════════════════════════════════════════════════════════════
     newPage();
     secHead('A.  PREAMBLE');
-
     justifiedPara('Distance learning programme (DLP) involves learning activities that are carried out in educational settings such as universities, colleges, schools and professional institutions. These settings may involve both traditional and non-traditional classroom practices, often referred to as \u201cdual mode system\u201d. A distance learning programme does not usually have a faculty or administrative services of its own but relies on the parent institution for teaching and administrative support. A distance education learning centre or unit is usually designated to run such programmes. Faculty members can engage students on-campus or off-campus through audiovisuals, technology and media channels. Enrollment is usually initiated by the student or learner, and learning is self-paced, and facilitated by the instructor. Managing distance learning can be very complex because of the unconventional processes and practices.');
-
     justifiedPara('Advances in technology and the Internet are also changing the dynamics of education. As a result, educational institutions are under pressure to reform courses and curricula, to redesign and manage new learning environments through telematics solutions, and to meet the learning needs of present-day students. As a formal educational process, learning and teaching in a distance education course occurs in a separate geographical location of students and instructors. A distance education course may use the Internet and technology-mediated devices for communication and interaction between the student and the instructor. Communication channels include printed media, audioconferencing, videos, audio, audio-visuals and electronic mails (emails). The instruction may be synchronous (real time) or asynchronous (anytime, anywhere).');
-
     justifiedPara('Regardless of the complexity, institutions that intend to run DE programmes in Ghana are expected to go beyond just participation to demonstrating continuous academic excellence by reforming curricula design, course delivery, management, and assessment systems. They shall operate in coherence with existing regular programmes of the parent university and ensure comparable qualifications gained. To qualify for accreditation, they shall operate in accordance with the GTEC/NCTE requirements, standards and norms, and guarantee the integrity of learning technology solutions (where applicable). All applicants shall comply with the following guidelines in the GTEC/INFO.A.7 Form to qualify for accreditation and in reporting on the various forms of distance education programmes at GTEC academic audits. In this document, distance education (DE) and distance learning (DL) are used interchangeably.');
 
-    // \u2550\u2550\u2550\u2550 B. PURPOSE
     secHead('B.  PURPOSE');
     justifiedPara('Given the issues raised about quality and standards of teaching and scholarship in distance learning, the following guidelines shall ensure no student is short-changed in the quest for further academic and career achievements. Therefore, applicants shall');
     subHead('1.  Objectives:');
-    [['1.1.','Seek GTEC approval to run academic and professional distance education programmes and courses offered by the parent institution or their representatives.'],
-     ['1.2.','Define and situate distance learning programmes in context and as a component of the traditional or conventional tertiary education system.'],
-     ['1.3.','Plan the educational functions of technology or ICT use in distance education as means to augment or advance academic and administrative objectives.'],
-     ['1.4.','Ensure adequate preparation, quality and comparable distance learning programmes to the conventional system.'],
-     ['1.5.','Ensure the establishment of institutional policies and procedures to protect its distance education objectives and interests, including administration, faculty or instructor qualifications, admission requirements, recruitment, programme design, distribution of course materials, copyrights, assessment, and qualifications gained.']
-    ].forEach(([n,t])=>numItem(n,t,8));
+    [['1.1.','Seek GTEC approval to run academic and professional distance education programmes and courses offered by the parent institution or their representatives.'],['1.2.','Define and situate distance learning programmes in context and as a component of the traditional or conventional tertiary education system.'],['1.3.','Plan the educational functions of technology or ICT use in distance education as means to augment or advance academic and administrative objectives.'],['1.4.','Ensure adequate preparation, quality and comparable distance learning programmes to the conventional system.'],['1.5.','Ensure the establishment of institutional policies and procedures to protect its distance education objectives and interests, including administration, faculty or instructor qualifications, admission requirements, recruitment, programme design, distribution of course materials, copyrights, assessment, and qualifications gained.']].forEach(([n,t])=>numItem(n,t,8));
 
-    // \u2550\u2550\u2550\u2550 C. REQUIREMENTS
     secHead('C.  REQUIREMENTS FOR ACCREDITATION');
     subHead('1.  Eligibility');
     justifiedPara('In addition to GTEC\u2019s approved minimum requirements for accrediting higher education programmes, an institution will qualify to run distance learning programmes when it has');
-    [['1.1.','Accreditation to run conventional university or tertiary education system.'],
-     ['1.2.','Submitted the completed application form, GTEC/INFO.A.7 and satisfied the competencies and provisions as required by the GTEC standards.'],
-     ['1.3.','Passed the institutional (field) visit assessment, which shall provide evidences of supporting human and educational resources and conducive learning environments including physical and virtual spaces.']
-    ].forEach(([n,t])=>numItem(n,t,8));
+    [['1.1.','Accreditation to run conventional university or tertiary education system.'],['1.2.','Submitted the completed application form, GTEC/INFO.A.7 and satisfied the competencies and provisions as required by the GTEC standards.'],['1.3.','Passed the institutional (field) visit assessment, which shall provide evidences of supporting human and educational resources and conducive learning environments including physical and virtual spaces.']].forEach(([n,t])=>numItem(n,t,8));
 
-    // \u2550\u2550\u2550\u2550 2. Institutional Details
     subHead('2.  Institutional Details');
     justifiedPara('Applicants shall submit to GTEC the details of the institution, including names and dates of establishment and last accreditation (if applicable), academic collaborations or affiliation (if applicable), location and contact information.');
-    justifiedPara('Please provide the following information', {after:5});
-
+    justifiedPara('Please provide the following information',{after:5});
     inlineField('2.1.  Name of Institution:', g('i_name'));
     inlineField('2.2.  Date of Establishment:', g('i_estab'));
     inlineField('2.3.  Type of Institution (university, college, polytechnic, etc.):', g('i_type'));
-
-    const pub=radio('i_public');
-    checkboxRow('2.4.  Public', pub==='yes', pub==='no');
-    const priv=radio('i_private');
-    checkboxRow('2.5.  Private', priv==='yes', priv==='no');
-    const ten=radio('i_tenancy');
-    checkboxRow('2.6.  Tenancy Agreement (where applicable).', ten==='yes', ten==='no');
+    const pub=radio('i_public');   checkboxRow('2.4.  Public',   pub==='yes',  pub==='no');
+    const priv=radio('i_private'); checkboxRow('2.5.  Private',  priv==='yes', priv==='no');
+    const ten=radio('i_tenancy');  checkboxRow('2.6.  Tenancy Agreement (where applicable).', ten==='yes', ten==='no');
     numItem('2.6.1.','If yes, submit a copy.',8);
-    const col=radio('i_collab');
-    checkboxRow('2.7.  Academic collaborations / affiliations.', col==='yes', col==='no');
+    const col=radio('i_collab');   checkboxRow('2.7.  Academic collaborations / affiliations.', col==='yes', col==='no');
     numItem('2.7.1.','If yes, submit a copy of MOU and other relevant documents.',8);
     inlineField('2.8.  Name of institution to award the diploma, degrees, etc. (if different from 2.1):', g('i_award_inst'));
     dotLines(2);
 
-    // \u2550\u2550\u2550\u2550 1. Distance Learning Policy
     subHead('1.  Distance Learning Policy');
     justifiedPara('No institution shall run DE degree or diploma programme and courses without a DL implementation policy.');
     numItem('1.1.','Please provide a copy of your DL policy document(s).');
-    numItem('1.2.','State how the DL programme integrates with the institution\u2019s academic mission and philosophy:');
-    answerField(g('dl_mission'), 5, 8);
-    numItem('1.3.','Provide policy statement on the variability and possible combinations of technologies to be employed or deployed for teaching, learning and research.');
-    answerField(g('dl_tech'), 5, 8);
-    numItem('1.4.','Explain how the DE policy on leadership conforms to established governance and administration of the institution.');
-    answerField(g('dl_gov'), 5, 8);
+    numItem('1.2.','State how the DL programme integrates with the institution\u2019s academic mission and philosophy:'); answerField(g('dl_mission'),5,8);
+    numItem('1.3.','Provide policy statement on the variability and possible combinations of technologies to be employed or deployed for teaching, learning and research.'); answerField(g('dl_tech'),5,8);
+    numItem('1.4.','Explain how the DE policy on leadership conforms to established governance and administration of the institution.'); answerField(g('dl_gov'),5,8);
 
-    // \u2550\u2550\u2550\u2550 2. Details of Programme
     subHead('2.  Details of Programme');
-    justifiedPara('Please provide information on the proposed distance education programme.', {after:5});
+    justifiedPara('Please provide information on the proposed distance education programme.',{after:5});
     inlineField('2.1.  Programme title:', g('pr_title')); dotLines(1);
-
-    const rel=radio('pr_related');
-    checkboxRow('2.2.  Is the programme related to any of the regular programme(s)?', rel==='yes', rel==='no');
+    const rel=radio('pr_related'); checkboxRow('2.2.  Is the programme related to any of the regular programme(s)?', rel==='yes', rel==='no');
     numItem('4.2.1.','if yes, indicate which one(s).',8); answerField(g('pr_related_prog'),2,8);
-
     inlineField('2.3.  Level of programme (Dip. HND, B. Tech, BA, BSc, MA, MSc, MPhil, PhD, EdD, etc.):', g('pr_level')); dotLines(1);
-
     numItem('2.4.','State the goals (aims) and objectives of the programme:');
     numItem('4.4.1.','Goals (Aims):',8); answerField(g('pr_goals'),4,8);
     numItem('4.4.2.','Objectives:',8); answerField(g('pr_objectives'),7,8);
-
     numItem('2.5.','State the entry requirements of students into the proposed level of the DL programmes.');
-    [['4.5.1.','HND:'],['4.5.2.','Diploma:'],['4.5.3.','Degree:']].forEach(([n,t])=>inlineField(n+'  '+t,'',8));
+    inlineField('4.5.1.  HND:','',8); inlineField('4.5.2.  Diploma:','',8); inlineField('4.5.3.  Degree:',g('pr_entry_a'),8);
     numItem('4.5.4.','Open learning admissions:',8); answerField(g('pr_entry_open'),2,8);
-
-    numItem('2.6.','Explain if the DE programme will allow for multiple entry points during the academic year.');
-    answerField(g('pr_duration'),4,8);
-
+    numItem('2.6.','Explain if the DE programme will allow for multiple entry points during the academic year.'); answerField(g('pr_duration'),4,8);
     numItem('2.7.','Components of the programme: Please provide information on the following:');
-    numItem('4.7.1.','Pre-requites or foundational courses for applicants who would have otherwise not qualified for entry into the level(s) admitted:',8); dotLines(4,8);
+    numItem('4.7.1.','Pre-requites or foundational courses:',8); dotLines(3,8);
     numItem('4.7.1.1.','Core course(s):',12); dotLines(3,12);
-    numItem('4.7.1.2.','Mandatory course(s):',12); dotLines(5,12);
+    numItem('4.7.1.2.','Mandatory course(s):',12); dotLines(4,12);
     numItem('4.7.1.3.','Research requirements:',12); dotLines(3,12);
-    numItem('4.7.1.4.','Competency-based training (CBT):',12); dotLines(4,12);
-    numItem('4.7.1.5.','Practical Training: clinical, industrial, internship, teaching, etc.:',12); dotLines(3,12);
+    numItem('4.7.1.4.','Competency-based training (CBT):',12); dotLines(3,12);
+    numItem('4.7.1.5.','Practical Training: clinical, industrial, internship, teaching, etc.:',12); dotLines(2,12);
     numItem('4.7.1.6.','Other (additional) requirements.',12); dotLines(1,12);
-
     numItem('4.8.','Expected completion period of the programme (in years).');
-    const pt=g('pr_duration'), tl=g('pr_timelimit');
-    inlineField('4.8.1.  Part-time', pt, 8);
-    inlineField('4.8.2.  Full-time', pt, 8);
-    inlineField('4.8.3.  Time Limit', tl, 8);
-
+    inlineField('4.8.1.  Part-time',g('pr_duration'),8);
+    inlineField('4.8.2.  Full-time',g('pr_duration'),8);
+    inlineField('4.8.3.  Time Limit',g('pr_timelimit'),8);
     numItem('4.9.','Ownership of programme');
     numItem('4.9.1.','Provide the institution that owns the programme:',8); answerField(g('pr_owner'),1,8);
     numItem('4.9.2.','Contact information:',8);
@@ -2545,179 +2684,119 @@ async function exportPDF() {
     numItem('4.9.2.2.','Address:',12); dotLines(3,12);
     inlineField('4.9.2.3.  Telephone:', g('i_contact_tel'),12);
     inlineField('4.9.2.4.  Email:', g('i_contact_email'),12);
-
-    // \u2500\u2500 Enrollment Table 1
     numItem('4.10.','Projected student enrollment for the next three (3) years.');
-    chk(8); justifiedPara('Complete Table 1: Projected total student enrollment', {bold:false, after:5});
-    const enCW=[40,16,16,16,16,16,16,16,16,16];
-    const enTW=enCW.reduce((a,b)=>a+b,0);
-    chk(30);
-    // Row 1 header
-    doc.setFillColor(225,225,225); doc.setDrawColor(...BLK); doc.setLineWidth(0.3);
-    doc.rect(lm,y,enTW,7,'FD');
-    let tx=lm;
-    doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
-    [{t:'Programme Centre(s)',s:1},{t:'Year 1 (20\u2026\u2026\u2026)',s:3},{t:'Year 2 (20\u2026\u2026\u2026)',s:3},{t:'Year 3 (20\u2026\u2026\u2026)',s:3}].forEach(({t,s})=>{
-      const spanW=enCW.slice(0,s).reduce((a,b)=>a+b,0); if(s>1) tx+=enCW[0]; else tx=lm;
-      if(s===1){doc.text(t,lm+2,y+4.8);}
-      else {doc.text(t,tx+spanW/2-s*enCW[1]/2,y+4.8,{align:'left'});}
-    });
-    // Reposition headers properly
-    tx=lm;
-    doc.rect(lm,y,enTW,7,'FD');
-    doc.setFontSize(7.5); doc.setFont('helvetica','bold');
-    doc.text('Programme Centre(s)', lm+1, y+4.8);
-    [{x:lm+40,label:'Year 1 (20\u2026\u2026)'},{x:lm+40+48,label:'Year 2 (20\u2026\u2026)'},{x:lm+40+96,label:'Year 3 (20\u2026\u2026)'}].forEach(({x,label})=>{
-      doc.text(label, x+24, y+4.8, {align:'center'});
-      doc.setDrawColor(...BLK); doc.line(x,y,x,y+7);
-    });
-    y+=7;
-    // Row 2 header (Female/Male/Total)
-    doc.setFillColor(235,235,235); doc.rect(lm,y,enTW,6,'FD');
-    tx=lm+40;
-    doc.setFontSize(7);
-    ['Female','Male','Total','Female','Male','Total','Female','Male','Total'].forEach((h,i)=>{
-      doc.text(h, tx+enCW[0]/2-2, y+4.2, {align:'center'});
-      if(i<8) doc.line(tx+16,y,tx+16,y+6);
-      tx+=16;
-    });
-    doc.line(lm,y,lm,y+6); doc.line(lm+enTW,y,lm+enTW,y+6);
-    y+=6;
-    // Data rows
-    const enRows=[];
-    document.querySelectorAll('#enroll-body tr').forEach(tr=>{
-      const ins=tr.querySelectorAll('input'); if(ins.length) enRows.push([...ins].map(i=>i.value||''));
-    });
-    const dispEn = enRows.length>0?enRows:[Array(10).fill(''),Array(10).fill('')];
-    dispEn.forEach((row,ri)=>{
-      chk(7); if(ri%2===0){doc.setFillColor(250,250,250);doc.rect(lm,y,enTW,7,'F');}
-      doc.setDrawColor(...BLK); doc.setLineWidth(0.2); doc.rect(lm,y,enTW,7);
-      tx=lm; doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...BLK);
-      enCW.forEach((cw2,i)=>{
-        if(row[i]) doc.text(String(row[i]).substring(0,14),tx+2,y+4.8);
-        if(i<enCW.length-1){doc.setDrawColor(...BLK);doc.line(tx+cw2,y,tx+cw2,y+7);}
-        tx+=cw2;
-      });
-      y+=7;
-    });
-    y+=5;
 
-    // \u2550\u2550\u2550\u2550 5. Course Description
+    // Enrollment table on landscape page
+    enrollmentTable();
+
     secHead('5.  Course Description, Contents, Delivery and Management');
     justifiedPara('Distance education programme contents and courses shall conform to all standard practices and procedures as established for traditional systems. (Note: development of DE course may take two to three times longer than comparable course development in the traditional system because of its learner-centred pedagogical requirements. Again, time invested in teaching a distance education course is significantly greater than comparable traditional course). The programme will be assessed on the following standards:');
-
     numItem('5.1.','Programme design (structure, contents, organization and credit value for each course or module).');
     numItem('5.1.1.','Programme and course learning objectives including competencies, skills and behavioral expectations.',8);
-    numItem('5.1.2.','Contents',8); numItem('5.1.3.','Reading texts',8);
-    numItem('5.1.4.','Pre-requisite of students (where applicable)',8);
+    numItem('5.1.2.','Contents',8); numItem('5.1.3.','Reading texts',8); numItem('5.1.4.','Pre-requisite of students (where applicable)',8);
     subHead('5.2.  Programme and course content development',0);
-    numItem('5.2.1.','Consistency in the presentation of courses or modules (course objectives must be aligned to contents and assessment methods).',8);
-    numItem('5.2.2.','Organization and structure of course(s) (e.g. by modules, weekly, projects, problem solving, etc.).',8);
-    numItem('5.2.3.','How the curriculum for online delivery incorporates interactivity between students-students, faculty-students, students-contents, etc. (where applicable).',8);
+    numItem('5.2.1.','Consistency in the presentation of courses or modules.',8);
+    numItem('5.2.2.','Organization and structure of course(s).',8);
+    numItem('5.2.3.','How the curriculum for online delivery incorporates interactivity.',8);
     subHead('5.3.  Programme and course content delivery',0);
-    numItem('5.3.1.','Type(s) of course delivery and classroom management options (e.g. tutoring, lecturing, or technology-mediated solutions - blended, online, mobile, etc.).',8);
-    answerField(g('d_delivery'),3,8);
+    numItem('5.3.1.','Type(s) of course delivery and classroom management options (e.g. tutoring, lecturing, or technology-mediated solutions - blended, online, mobile, etc.).',8); answerField(g('d_delivery'),3,8);
     numItem('5.3.2.','Information on course access and navigation of contents (submit user manuals e.g. student handbook, faculty handbook).',8);
     numItem('5.3.3.','Available course tools to promote learner engagement and active learning.',8);
-    numItem('5.3.4.','Alternative means of course access in meeting the needs of diverse learners such as students with disabilities.',8);
-    answerField(g('d_access'),2,8);
+    numItem('5.3.4.','Alternative means of course access in meeting the needs of diverse learners such as students with disabilities.',8); answerField(g('d_access'),2,8);
     subHead('5.4.  Content management and evaluation',0);
     numItem('5.4.1.','Information on class sizes (ratio of instructor or lecturer to students).',8);
     numItem('5.4.2.','Description of how course contents or modules will be packaged and managed in',8);
-    numItem('5.4.2.1.','Physical learning environment',16);
-    numItem('5.4.2.2.','Virtual (online) learning environment.',16);
-    numItem('5.4.2.3.','Blended (online and physical) learning environment.',16);
-    numItem('5.4.3.','Type of learner and instructor engagement, whether synchronous \u2013 real time, synchronous \u2013 anytime, anywhere, or both synchronous and asynchronous (if applicable).',8);
-    const eng=g('d_engagement'); if(eng) justifiedPara(eng,{indent:16, after:paraGap});
+    numItem('5.4.2.1.','Physical learning environment',16); numItem('5.4.2.2.','Virtual (online) learning environment.',16); numItem('5.4.2.3.','Blended (online and physical) learning environment.',16);
+    numItem('5.4.3.','Type of learner and instructor engagement, whether synchronous \u2013 real time, asynchronous \u2013 anytime, anywhere, or both synchronous and asynchronous (if applicable).',8);
+    const eng=g('d_engagement'); if(eng) justifiedPara(eng,{indent:16,after:paraGap});
     subHead('5.5.  Requirements for graduation',0);
-    numItem('5.5.1.','Course load (requirements)',8);
-    numItem('5.5.2.','Credit requirements (per semester, academic year, and for graduation)',8);
-    numItem('5.5.3.','Coherence of course of study including fitness of open learning schedules.',8);
-    chk(16);
-    ['Total Credits: '+(g('cr_total')||''), 'Minimum CGPA: '+(g('cr_cgpa')||''), 'Pass Mark per Course: '+(g('cr_pass')||'')].forEach(t=>{
-      inlineField(t,'',8);
-    });
+    numItem('5.5.1.','Course load (requirements)',8); numItem('5.5.2.','Credit requirements (per semester, academic year, and for graduation)',8); numItem('5.5.3.','Coherence of course of study including fitness of open learning schedules.',8);
+    inlineField('Total Credits:', g('cr_total'),16); inlineField('Minimum CGPA:', g('cr_cgpa'),16); inlineField('Pass Mark per Course:', g('cr_pass'),16);
 
-    // Course schedule tables
-    [['Year 1: Semester 1','y1s1'],['Year 1: Semester 2','y1s2'],['Year 2: Semester 1','y2s1'],['Year 2: Semester 2','y2s2'],['Elective Courses','electives']].forEach(([label,tid])=>{
-      const rows=[]; document.querySelectorAll('#'+tid+' tr').forEach(tr=>{
-        const ins=tr.querySelectorAll('input,select');
-        if(ins.length>=3) rows.push([[...ins][0]?.value||'',[...ins][1]?.value||'',[...ins][2]?.value||'',[...ins][3]?.value||'Core']);
-      });
-      if(!rows.length) return;
-      chk(22); y+=2;
-      doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
-      doc.text(label, lm, y); y+=7;
-      drawTable(['Course Code','Course Title','Credit Hours','Type'], rows, [22,cw-22-20-18,20,18]);
-    });
+    // Course tables on landscape pages
+    [['Year 1: Semester 1 \u2014 Course Schedule','y1s1'],['Year 1: Semester 2 \u2014 Course Schedule','y1s2'],['Year 2: Semester 1 \u2014 Course Schedule','y2s1'],['Year 2: Semester 2 \u2014 Course Schedule','y2s2'],['Elective Courses','electives']].forEach(([lbl,tid])=>courseTable(lbl,tid));
 
     numItem('5.6.','Data on staff/student ratio (SSR)');
-    justifiedPara('Please provide current data of staff and student for the programme (if programme is new, submit projected data)',{after:4});
-    doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.text('Table 2.  Staff/Student Ratio (SSR)', lm, y); y+=6;
-    const ssrRows=[]; document.querySelectorAll('#ssr-body tr').forEach(tr=>{const ins=tr.querySelectorAll('input');if(ins.length) ssrRows.push([...ins].map(i=>i.value||''));});
-    drawTable(['Total No. of DL Teaching Staff','Total No. of Students on the Programme','Staff/Student Ratio (SSR = Total # of Staff / Total # of Students)'],[],[55,55,50]);
+
+    // Table 2 SSR — landscape for readability
+    newLandscapePage();
+    {
+      const g = L;
+      doc.setFontSize(12); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
+      doc.text('Table 2:  Staff/Student Ratio (SSR)', g.pw/2, y, {align:'center'}); y+=8;
+      doc.setFontSize(10); doc.setFont('helvetica','normal');
+      doc.text('Please provide current data of staff and student for the programme (if programme is new, submit projected data)', g.lm, y); y+=7;
+      const ssrRows=[]; document.querySelectorAll('#ssr-body tr').forEach(tr=>{const ins=tr.querySelectorAll('input');if(ins.length) ssrRows.push([...ins].map(i=>i.value||''));});
+      const ssrHdrs=['Unit / Department','Full-Time Teaching Staff','Part-Time Teaching Staff','Full-Time Students','Part-Time Students','Staff/Student Ratio (SSR)'];
+      const ssrCW=[60,36,36,36,36,60]; // sums to 264 = L.cw
+      drawTableOnPage(ssrHdrs, ssrRows.length?ssrRows:[Array(6).fill(''),Array(6).fill(''),Array(6).fill('')], ssrCW, g);
+      y+=4;
+      doc.setFontSize(9); doc.setFont('helvetica','italic');
+      doc.text('SSR formula: SSR = Total No. of Teaching Staff ÷ Total No. of Students', g.lm, y); y+=8;
+    }
 
     numItem('5.7.','Data on facilitator/student ratio (FSR)');
-    justifiedPara('Please provide current data of facilitator and student for the programme (if programme is new, submit projected data)',{after:4});
-    doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.text('Table 2.  Facilitator/Student Ratio (FSR)', lm, y); y+=6;
-    drawTable(['Total No. of DL Facilitators','Total No. of Students on the Programme','Facilitator/Student Ratio (FSR = Total # of Facilitators / Total # of Students)'],[],[55,55,50]);
+    {
+      const g = L;
+      doc.setFontSize(12); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
+      doc.text('Table 2:  Facilitator/Student Ratio (FSR)', g.pw/2, y, {align:'center'}); y+=8;
+      doc.setFontSize(10); doc.setFont('helvetica','normal');
+      doc.text('Please provide current data of facilitator and student for the programme (if programme is new, submit projected data)', g.lm, y); y+=7;
+      const fsrHdrs=['Unit / Study Centre','Total No. of DL Facilitators','Total No. of Students on the Programme','Facilitator/Student Ratio (FSR)'];
+      const fsrCW=[80,60,70,54]; // sums to 264
+      drawTableOnPage(fsrHdrs, [Array(4).fill(''),Array(4).fill(''),Array(4).fill('')], fsrCW, g);
+      y+=4;
+      doc.setFontSize(9); doc.setFont('helvetica','italic');
+      doc.text('FSR formula: FSR = Total No. of Facilitators ÷ Total No. of Students', g.lm, y); y+=8;
+    }
+    // Return to portrait for sections 6+
+    newPage();
 
-    // \u2550\u2550\u2550\u2550 6. Learning Environment
     secHead('6.  Learning Environment: Physical, Technical and Technological Requirements');
     justifiedPara('Please describe in detail the type(s) of physical and technological requirements for the programme including technical expertise, physical and virtual infrastructure and learning solutions (hardware and software, where applicable).');
-    [['6.1.','What are the type(s) of physical infrastructure available to support the programme (e.g. learning or study centres, eLearning and ICT centres, library, etc.)?', g('d_physical')],
-     ['6.2.','What are the type(s) of technological (ICT) infrastructure available to support integrated media application, e.g. computer network system and Internet, learning management system, enterprise resources planning systems, etc. (if applicable)?', g('d_tech')],
-     ['6.3.','Provide information on key ICT and Educational Technology staff (heads) responsible for managing the technology-mediated learning environment such as name, qualification, status and responsibility.',''],
-     ['6.4.','Explain the roles of the ICT and Educational/Instructional Technology staff in managing the distance education programme. (e.g. instructional designers, content developers, IT and computer network specialists, etc.)','']
-    ].forEach(([n,t,v])=>{ numItem(n,t); answerField(v,3,8); });
-
+    [['6.1.','What are the type(s) of physical infrastructure available to support the programme (e.g. learning or study centres, eLearning and ICT centres, library, etc.)?',g('d_physical')],['6.2.','What are the type(s) of technological (ICT) infrastructure available to support integrated media application, e.g. computer network system and Internet, learning management system, enterprise resources planning systems, etc. (if applicable)?',g('d_tech')],['6.3.','Provide information on key ICT and Educational Technology staff (heads) responsible for managing the technology-mediated learning environment such as name, qualification, status and responsibility.',''],['6.4.','Explain the roles of the ICT and Educational/Instructional Technology staff in managing the distance education programme. (e.g. instructional designers, content developers, IT and computer network specialists, etc.)','']].forEach(([n,t,v])=>{numItem(n,t); answerField(v,3,8);});
     numItem('6.1.','Provide evidence of support for faculty development regarding ICT or digital literacy and technology-mediated pedagogy (submit user manuals and policy documents).');
     numItem('6.2.','Provide evidence of student support system (submit user manuals with statements on access to information, orientation and help options).');
-    numItem('6.3.','State the distribution points for course content access (e.g. library system, personal computers, mobile devices and/or on-campus off-campus accesses, etc.).'); dotLines(3,8);
-    numItem('6.4.','Explain the potentials of the selected technology-mediated pedagogical solution(s), and how it (they) can support student learning outcomes.'); dotLines(4,8);
-    numItem('6.5.','State the limitations of the technology-mediated pedagogical solution(s), and how these challenges will be solved for sustainability and to safeguard future risks.');
-    numItem('6.5.1.','Limitations:',8); dotLines(5,8);
-    numItem('6.5.2.','Possible solutions:',8); dotLines(5,8);
+    numItem('6.3.','State the distribution points for course content access.'); dotLines(3,8);
+    numItem('6.4.','Explain the potentials of the selected technology-mediated pedagogical solution(s).'); dotLines(4,8);
+    numItem('6.5.','State the limitations of the technology-mediated pedagogical solution(s), and how these challenges will be solved.');
+    numItem('6.5.1.','Limitations:',8); dotLines(5,8); numItem('6.5.2.','Possible solutions:',8); dotLines(5,8);
 
-    // \u2550\u2550\u2550\u2550 7. Instructor Qualification
     secHead('7.  Instructor Qualification');
     justifiedPara('The institution shall maintain a core group of highly qualified academic staff with appreciable length of experience in their chosen professions and in the DL field, to effect the right leadership and direction for the programme.');
     numItem('7.1.','Provide academic and professional qualification of faculty and staff (complete Table 4).');
-    numItem('7.2.','State the requirements for e-pedagogical skills of faculty who intend to teach through technology (attach policy; require certification through professional training).'); dotLines(4,8);
+    numItem('7.2.','State the requirements for e-pedagogical skills of faculty who intend to teach through technology.'); dotLines(4,8);
     numItem('7.3.','Submit evidence of continuous faculty professional development to direct teaching or facilitation through technology.');
     numItem('7.4.','Submit salary structure of instructors or faculty members (for academic audit).');
     staffTable4();
 
-    // \u2550\u2550\u2550\u2550 8. Assessment
     secHead('8.  Assessment, Grading and Certification');
     justifiedPara('Students\u2019 performances, learning outcomes and requirements for successful course completion shall compare favourably to that of residential programmes. Assessment of the DE programmes shall cover both formative and summative assessments. Formative assessment shall include continuous assessments, sectional reports, grading systems, and attainment of desired learning outcomes. Summative evaluation shall cover student and faculty course evaluation reports, degree of effectiveness of course delivery, and general appraisal of learning management solution or platform such as mode, compliance, interoperability, scalability, manageability, and practicality. Please respond to the following requirements:');
     numItem('8.1.','What are the type(s) of student assessment, reporting and feedback systems for the programme?');
     numItem('8.1.1.','Formative (e.g. continuous assessment - quizzes, multiple choice, etc.).',8); answerField(g('d_formative'),4,8);
     numItem('8.1.2.','Summative (e.g. end-of-semester projects and long essays).',8); answerField(g('d_summative'),4,8);
-    numItem('8.2.','Explain how you will check plagiarism and maintain academic honesty in technology-mediated learning environment (e.g. by using in-built integrated software, standalone software, manual check, multiple checks, etc.).'); answerField(g('d_plagiarism'),4,8);
+    numItem('8.2.','Explain how you will check plagiarism and maintain academic honesty in technology-mediated learning environment.'); answerField(g('d_plagiarism'),4,8);
     numItem('8.3.','Explain how examinations shall be');
-    numItem('8.3.1.','Conducted (e.g. physical and proctored, physical and non-proctored, online and non-proctored, online and proctored, etc.).',8); answerField(g('d_exam'),3,8);
+    numItem('8.3.1.','Conducted (e.g. physical and proctored, online and non-proctored, online and proctored, etc.).',8); answerField(g('d_exam'),3,8);
     numItem('8.3.2.','Regulated (Moderated) (e.g. internal, external, internal and external).',8); dotLines(4,8);
     numItem('8.3.3.','Reported (e.g. computer-based, physical/manual, online, etc.).',8); dotLines(4,8);
     numItem('8.4.','Explain the measures you shall take to ensure the security and integrity of examinations with respect to the conduct, impersonation, invigilation and certification.'); answerField(g('d_integrity'),5,8);
     numItem('8.5.','Please submit seasonal (mid-year, end-of-year) reports on effectiveness or otherwise of online learning offerings (required for academic audit).'); dotLines(3,8);
-    numItem('8.6.','Please submit a brief report on general appraisal of the learning management solution or platform such as mode, compliance, practicality, scalability, interoperability, etc., and levels of success (required for academic audit \u2013 where applicable).'); dotLines(3,8);
+    numItem('8.6.','Please submit a brief report on general appraisal of the learning management solution or platform (required for academic audit \u2013 where applicable).'); dotLines(3,8);
 
-    // \u2550\u2550\u2550\u2550 9. Student Support
     secHead('9.  Student and Administrative Support');
     justifiedPara('Please respond to the following requirements:');
-    numItem('9.1.','Submit information on admission requirements for all non-regular students (e.g. open learning admissions including pre-requisites and credit accumulations, if they do not conform to GTEC admission requirements (submit policy on admissions).');
-    numItem('9.2.','Explain how the student to be admitted or in admission (for academic audit) to the programme fit the profile of enrolment into the DE programme.'); dotLines(6,8);
-    numItem('9.3.','Provide student orientation plan toward the utilization of technology-mediated distance education (submit student handbook on distance learning).');
-    numItem('9.4.','Explain how students will be supported in demonstrating adequate proficiency in the use of technology-mediated distance learning (if applicable).'); dotLines(5,8);
+    numItem('9.1.','Submit information on admission requirements for all non-regular students (e.g. open learning admissions including pre-requisites and credit accumulations, if they do not conform to GTEC admission requirements).');
+    numItem('9.2.','Explain how the student to be admitted to the programme fits the profile of enrolment into the DE programme.'); dotLines(6,8);
+    numItem('9.3.','Provide student orientation plan toward the utilization of technology-mediated distance education (submit student handbook).');
+    numItem('9.4.','Explain how students will be supported in demonstrating adequate proficiency in the use of technology-mediated distance learning.'); dotLines(5,8);
     numItem('9.5.','Provide information on general administration and technical support for student throughout the learning experience.');
     numItem('9.5.1.','Access to course and learning resources (including open accesses).',8); dotLines(5,8);
     numItem('9.5.2.','Tracking student participation with the purpose of reducing attrition rates.',8); dotLines(5,8);
     numItem('9.5.3.','Channel of communication.',8); dotLines(5,8);
     numItem('9.6.','Explain the channels of communication available to students with respect to the following:');
-    [['9.5.4.','Enquiries'],['9.5.5.','Registration'],['9.5.6.','Payment terms and procedures'],['9.5.7.','Refunds (where applicable)'],['9.5.8.','Guidance and Counseling'],['9.5.9.','Conflict resolution'],['9.5.10.','Access to transcripts and result details']].forEach(([n,t])=>inlineField(n+'  '+t+' ',''  ,8));
+    [['9.5.4.','Enquiries'],['9.5.5.','Registration'],['9.5.6.','Payment terms and procedures'],['9.5.7.','Refunds (where applicable)'],['9.5.8.','Guidance and Counseling'],['9.5.9.','Conflict resolution'],['9.5.10.','Access to transcripts and result details']].forEach(([n,t])=>inlineField(n+'  '+t+' ','',8));
 
-    // \u2550\u2550\u2550\u2550 10. Academic Integrity
     secHead('10.  Academic Integrity and Quality Assurance');
     justifiedPara('Institutions shall be responsible for ensuring that students who register in a distance education programme or course are the same as those who receive credits, complete and graduate.');
     numItem('10.1.','Explain the measures you have put in place to ensure confidentiality and authentication of the identity of students enrolled in the DE programmes, particularly in online options.'); dotLines(5,8);
@@ -2726,23 +2805,18 @@ async function exportPDF() {
     subHead('10.4.  Finance and Administration',0);
     numItem('10.4.1.','Please provide evidence of integrated DE budget into general budget to ensure sustainability of ICT or technology-mediated programme (submit DE financial plan).',8);
     numItem('10.4.2.','Justify your sources of funding to ensure sustainability of DE programmes and integrated innovations.',8); dotLines(6,12);
-    numItem('10.4.3.','Submit bank information for justification',8);
+    numItem('10.4.3.','Submit bank information for justification.',8);
 
-    // \u2550\u2550\u2550\u2550 NOTES
     chk(50); y+=4;
     doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...BLK);
-    doc.text('Notes:', lm, y); y+=7;
+    doc.text('Notes:', geo().lm, y); y+=7;
     justifiedPara('In addition to general GTEC requirements for accrediting tertiary education institution, applicants shall satisfy these provisions to qualify to run DE programmes. They shall submit the following documents:');
-    ['DE policies with clear directions, processes and expected key performance outcomes.',
-     'Faculty policy/handbook','Student policy/handbook',
-     'User manuals to guide navigation of technology-mediated pedagogy (where applicable).'].forEach(item=>{
-      chk(7);
-      doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(...BLK);
-      doc.text('\u2022', lm+4, y);
-      justifiedPara(item, {indent:10, after:3});
+    ['DE policies with clear directions, processes and expected key performance outcomes.','Faculty policy/handbook','Student policy/handbook','User manuals to guide navigation of technology-mediated pedagogy (where applicable).'].forEach(item=>{
+      chk(7); doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(...BLK);
+      doc.text('\u2022', geo().lm+4, y);
+      justifiedPara(item,{indent:10, after:3});
     });
 
-    // Final page footer
     drawFooter();
 
     const fname='GTEC_INFO_A7_'+(g('i_name')||'Application').replace(/\s+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.pdf';
