@@ -837,18 +837,18 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
               </div>
             </div>
           </div>
-          <div class="row c1"><div class="fg"><label>Name of Award Institution (if different)</label><input type="text" id="i_award_inst" placeholder="Leave blank if same"></div></div>
+          <div class="row c1"><div class="fg"><label>Name of Award Institution (if different)</label><input type="text" id="i_award_inst" value="The University will award its diploma, degrees etc."></div></div>
         </div>
         <div class="card">
           <div class="card-title">Contact Information</div>
           <div class="row c2">
-            <div class="fg"><label>Contact Person Name <span class="req">*</span></label><input type="text" id="i_contact_name" value="Esq. Gideon Abbeyquaye"></div>
-            <div class="fg"><label>Title / Position <span class="req">*</span></label><input type="text" id="i_contact_title" value="Director, Directorate of Academic Affairs"></div>
+            <div class="fg"><label>Contact Person Name <span class="req">*</span></label><input type="text" id="i_contact_name" value="Prof. Dennis W. Aheto"></div>
+            <div class="fg"><label>Title / Position <span class="req">*</span></label><input type="text" id="i_contact_title" value="Vice-Chancellor, University of Cape Coast"></div>
           </div>
           <div class="row c3">
             <div class="fg"><label>Address</label><input type="text" id="i_contact_addr" placeholder="Postal address"></div>
-            <div class="fg"><label>Telephone <span class="req">*</span></label><input type="tel" id="i_contact_tel" value="0208162005"></div>
-            <div class="fg"><label>Email <span class="req">*</span></label><input type="email" id="i_contact_email" value="daa@ucc.edu.gh"></div>
+            <div class="fg"><label>Telephone <span class="req">*</span></label><input type="tel" id="i_contact_tel" value=""></div>
+            <div class="fg"><label>Email <span class="req">*</span></label><input type="email" id="i_contact_email" value="vc@ucc.edu.gh"></div>
           </div>
         </div>
         <div class="nav-btns">
@@ -866,7 +866,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
         <div class="card">
           <div class="card-title">Mission &amp; Philosophy Integration</div>
           <div class="row c1"><div class="fg"><label>How the DL Programme Integrates with Institutional Mission &amp; Philosophy <span class="req">*</span></label>
-            <textarea id="dl_mission" rows="6" placeholder="Describe alignment with institutional mission, equal access philosophy, academic quality, and innovation...">The Distance Education (DE) programme at the University of Cape Coast is fully integrated with the institution's academic mission and philosophy. The University's mission is to provide quality education through comprehensive liberal and professional programmes that challenge learners to be creative, innovative, and responsible citizens. The DE programme embodies this mission by offering flexible, accessible education to non-traditional learners.</textarea></div></div>
+            <textarea id="dl_mission" rows="6" placeholder="Describe alignment with institutional mission, equal access philosophy, academic quality, and innovation...">The Online (DE) programme at the University of Cape Coast is fully integrated with the institution's academic mission and philosophy by aligning with the following core elements: (1) Mission Alignment: The University of Cape Coast's mission is to provide quality education through comprehensive liberal and professional programmes that challenge learners to be creative, innovative, and responsible citizens. The Online programme embodies this mission by offering flexible, accessible education to non-traditional learners, allowing them to pursue academic excellence despite geographical, economic, and social barriers. (2) Philosophy of Equal Access: The University's philosophy of equal opportunity and access to quality education is reflected in the Online programme, which is designed to provide the same academic standards and learning outcomes as conventional, on-campus programmes. (3) Academic Quality and Rigor: All learners are expected to achieve high-quality educational outcomes irrespective of the mode of delivery. (4) Flexibility and Innovation: The Online programme integrates the institution's commitment to innovation by leveraging technology and e-learning platforms.</textarea></div></div>
         </div>
         <div class="card">
           <div class="card-title">Technology Policy Statement</div>
@@ -893,7 +893,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
         <div class="card">
           <div class="card-title">Basic Programme Information</div>
           <div class="row c2">
-            <div class="fg"><label>Programme Title <span class="req">*</span></label><input type="text" id="pr_title" value="Master of Science (Sustainability & Governance Management)"></div>
+            <div class="fg"><label>Programme Title <span class="req">*</span></label><input type="text" id="pr_title" value="Master of Science (Economics)"></div>
             <div class="fg"><label>Level <span class="req">*</span></label>
               <select id="pr_level"><option>Diploma</option><option>HND</option><option>BA</option><option>BSc</option><option value="MSc" selected>MSc</option><option>MPhil</option><option>MBA</option><option>PhD</option></select></div>
           </div>
@@ -901,13 +901,14 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
             <div class="fg"><label>Related to Regular Programme?</label>
               <div class="radio-grp"><label class="radio-opt"><input type="radio" name="pr_related" value="yes" checked> Yes</label><label class="radio-opt"><input type="radio" name="pr_related" value="no"> No</label></div>
             </div>
-            <div class="fg"><label>Related Programme(s)</label><input type="text" id="pr_related_prog" placeholder="e.g. Master of Commerce (Management)"></div>
+            <div class="fg"><label>Related Programme(s)</label><input type="text" id="pr_related_prog" value="Master of Science (Economics)"></div>
           </div>
         </div>
         <div class="card">
           <div class="card-title">Programme Goals &amp; Learning Outcomes</div>
           <div class="row c1"><div class="fg"><label>Programme Goals (Aims) <span class="req">*</span></label>
-            <textarea id="pr_goals" rows="5" placeholder="State the programme's overarching goals..."></textarea></div></div>
+            <textarea id="pr_goals" rows="5" placeholder="State the programme's overarching goals..."
+              value="The Programme is designed to cultivate learners' advanced expertise in economic theory, quantitative analysis, policy evaluation, and applied economics. Through an integrated exploration of core economic principles and their application to organisational, national, regional and global challenges."></textarea></div></div>
           <div id="plo-container"></div>
           <button class="add-row" onclick="addPLO()">+ Add Programme Learning Outcome</button>
         </div>
@@ -923,9 +924,9 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
         <div class="card">
           <div class="card-title">Duration, Ownership &amp; Enrollment</div>
           <div class="row c3">
-            <div class="fg"><label>Full-time Duration</label><input type="text" id="pr_duration" value="Two Years / One Year (Top-Up)"></div>
-            <div class="fg"><label>Time Limit</label><input type="text" id="pr_timelimit" value="Four Years / Two Years (Top-Up)"></div>
-            <div class="fg"><label>Programme Owner</label><input type="text" id="pr_owner" value="University of Cape Coast"></div>
+            <div class="fg"><label>Full-time Duration</label><input type="text" id="pr_duration" value="Two Years"></div>
+            <div class="fg"><label>Time Limit</label><input type="text" id="pr_timelimit" value="Five Years"></div>
+            <div class="fg"><label>Programme Owner</label><input type="text" id="pr_owner" value="UNIVERSITY OF CAPE COAST"></div>
           </div>
           <div class="info"><strong>Table 1: Projected Student Enrollment</strong>Complete enrollment projections for the next three academic years.</div>
           <div style="overflow-x:auto;">
@@ -990,9 +991,9 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
         <div class="card">
           <div class="card-title">Credit Requirements</div>
           <div class="row c3">
-            <div class="fg"><label>Total Credits for Graduation</label><input type="number" id="cr_total" value="54"></div>
+            <div class="fg"><label>Total Credits for Graduation</label><input type="number" id="cr_total" value="63"></div>
             <div class="fg"><label>Minimum CGPA</label><input type="text" id="cr_cgpa" value="2.00"></div>
-            <div class="fg"><label>Pass Mark per Course</label><input type="text" id="cr_pass" value="60%"></div>
+            <div class="fg"><label>Pass Mark per Course</label><input type="text" id="cr_pass" value="60% (Grade C)></div>
           </div>
         </div>
         <div class="card">
@@ -1050,7 +1051,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
         <div class="card">
           <div class="card-title">Mode of Delivery</div>
           <div class="row c2">
-            <div class="fg"><label>Primary LMS Platform</label><input type="text" id="d_lms" value="Canvas LMS (Powered by Astria Learning)"></div>
+            <div class="fg"><label>Primary LMS Platform</label><input type="text" id="d_lms" value="Astria Learning powered Canvas LMS"></div>
             <div class="fg"><label>Engagement Type</label>
               <select id="d_engagement"><option value="both" selected>Both Synchronous &amp; Asynchronous</option><option value="sync">Synchronous only</option><option value="async">Asynchronous only</option></select></div>
           </div>
@@ -1247,7 +1248,7 @@ textarea { resize: vertical; min-height: 90px; line-height: 1.65; }
    KEY:  Supabase dashboard → Settings → API → anon/public key
    ══════════════════════════════════════════════════════════════ */
 const SUPABASE_URL  = 'https://bhxkxpqtlqhhlyowgbmn.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJoeGt4cHF0bHFoaGx5b3dnYm1uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0MjA2OTEsImV4cCI6MjA5Mjk5NjY5MX0.DKa04fr8lRYjJosa8lhPCGk87V7xJua-blpdVQ7D9Qg'; // ← REPLACE THIS before uploading
+const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY_HERE'; // ← REPLACE THIS before uploading
 
 /* Admin email list — these users see all submissions */
 const ADMIN_EMAILS  = [
@@ -1922,23 +1923,48 @@ function updateStatus() {
    FORM HELPERS
    ───────────────────────────────────────────────────────────── */
 const defaultPLOs = [
-  'Demonstrate integrated advanced knowledge of ESG principles, sustainability strategy, corporate governance, climate risk management, green finance, and social impact measurement — critically evaluating their application to complex organisational and systemic sustainability challenges across diverse institutional contexts.',
-  'Critically evaluate complex ESG environments, sustainability regulatory landscapes, and climate risk governance challenges — formulating evidence-based sustainability and governance strategies that create sustainable organisational value, investor confidence, and positive environmental and social impact.',
-  'Apply quantitative, qualitative, digital, geospatial, and AI-enabled sustainability analytical tools — including carbon accounting systems, ESG rating frameworks, and impact measurement frameworks — to support strategic sustainability and governance decision making.',
-  'Lead and collaborate ethically and effectively with diverse sustainability and governance stakeholders — communicating complex ESG insights, sustainability strategies, and climate risk assessments clearly in written, oral, and professional formats.',
-  'Design, implement, and evaluate sustainability and governance management solutions for ESG strategy integration, climate risk governance, sustainability reporting, and responsible investment management.',
-  'Critically assess the impact of climate change, biodiversity loss, social inequality, digital transformation, and AI in reshaping contemporary sustainability and governance management practice.',
-  'Design and conduct rigorous, ethical, and methodologically sound independent research addressing relevant sustainability governance, ESG management, or social impact problems.',
-  'Produce and translate sustainability and governance research outputs into actionable strategic recommendations and evidence-based insights that contribute to knowledge and professional practice.',
+  'Demonstrate advanced knowledge of economic theory, quantitative analysis, macroeconomic policy and development economics, critically evaluating their application to complex economic decision making, market behaviour, welfare analysis, and policy design in diverse economic and institutional contexts.',
+  'Develop capacity to design and assess economic strategies and policy recommendations using sophisticated analytical frameworks including Keynesian and New Keynesian models, DSGE frameworks, monetary policy transmission mechanisms, and fiscal sustainability analysis.',
+  'Apply advanced quantitative and econometric tools such as regression analysis, time series econometrics, simulation modelling, and AI-driven economic intelligence for economic research and policy design.',
+  'Foster ethical leadership, professional integrity and accountability, preparing graduates to uphold research standards, and lead socially responsible economic analysis in complex global environments.',
+  'Critically evaluate general equilibrium theory, welfare economics, game theory and mechanism design — applying these frameworks to market design, regulatory policy, and the governance of complex economic interactions.',
+  'Apply development economics analytical frameworks and policy evaluation tools to assess development challenges, design evidence-based strategies, and contribute original insights to inclusive growth and sustainable economic transformation in African and emerging economies.',
+  'Design and conduct rigorous, ethical, and methodologically sound independent empirical research that addresses relevant economic policy, development, and quantitative analysis problems.',
+  'Produce and translate economic and policy research outputs into actionable strategic recommendations and evidence-based insights for diverse academic, policy, and professional audiences.'
 ];
 
 const defaultCourses = {
-  y1s1:[['MSC 801','Principles of Management and Organisational Behaviour','3','Core'],['MSC 802','Global Business Economics','3','Core'],['MSSG 803','ESG Strategy and Leadership','3','Core'],['MSSG 804','Social Impact and Stakeholder Governance','3','Core'],['MBA 805','Applied AI in Business','3','Core']],
-  y1s2:[['MBA 806','Scientific Writing and Business Communication','3','Core'],['MSSG 811','Climate Risk and Net-Zero Strategy','3','Mandatory'],['MSSG 812','Sustainable Finance and Responsible Investment','3','Mandatory'],['MSSG 813','Circular Economy and Sustainable Business','3','Mandatory'],['MSSG 814','Smart Cities and Urban Sustainability','3','Mandatory']],
-  y2s1:[['MSSG 815','AI and Digital ESG Management','3','Mandatory'],['MSC 816','Advanced Qualitative and Quantitative Research Methods','3','Research'],['MSC 881','Seminar I','3','Research'],['MSC 899','Thesis','12','Research']],
-  y2s2:[['MSC 882','Seminar II','3','Research'],['MSC 899A','Thesis (Continuation)','12','Research']],
+  y1s1:[
+    ['MEC 801','Advanced Microeconomic Theory I','3','Core'],
+    ['MEC 802','Quantitative Methods I','3','Core'],
+    ['MEC 803','Advanced Macroeconomics and Economic Policy I','3','Core'],
+    ['MEC 804','Econometrics I (Statistics for Economists)','3','Core'],
+    ['MEC 805','Advanced Microeconomic Theory II','3','Core'],
+    ['MEC 816','Advanced Research Methods II (Computer Applications)','3','Core']
+  ],
+  y1s2:[
+    ['MEC 806','Advanced Macroeconomics and Economic Policy II','3','Core'],
+    ['MEC 811','Econometrics II','3','Core'],
+    ['MEC 808','Quantitative Methods II','3','Core'],
+    ['MEC 812','Development Economics','3','Elective'],
+    ['Elective I','(Select one Elective)','3','Elective']
+  ],
+  y2s1:[
+    ['MEC 815','Economics of the Digital Age','6','Core'],
+    ['MEC 812','Advanced Research II (Computer Applications)','6','Core'],
+    ['Elective II','(Select one Elective)','3','Elective']
+  ],
+  y2s2:[
+    ['MSC 899','Dissertation','15','Research']
+  ],
 };
-const defaultElectives = [['MSC 821','Data Analytics for Managers','3'],['MSC 822','Global Business Strategy','3'],['MSC 823','Climate Finance for Emerging Economies','3'],['MSC 824','Global Supply Chain and Logistics Management','3'],['MSC 825','Adaptive Leadership in Africa','3']];
+const defaultElectives = [
+  ['MSC 821','Data Analytics for Managers','3'],
+  ['MEC 822','Labour Economics','3'],
+  ['MEC 823','Monetary Economics','3'],
+  ['MEC 824','Public Sector Economics','3'],
+  ['MEC 825','Environmental Economics','3']
+];
 
 function addPLO(txt='') {
   const c = document.getElementById('plo-container');
@@ -2909,7 +2935,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   defaultElectives.forEach(r => addElective(...r));
   addStaff(['Prof. Siaw Frimpong','Teaching Staff (HQ)','CoDE, Cape Coast','M','PhD Finance, 2014, Kenya','Full Professor / 21 years','Finance','Academic Writing','']);
   addStaff(['Prof. Anokye M. Adam','Teaching Staff (HQ)','Cape Coast','M','PhD Finance, 2015, University of Venda','Full Professor / 15 years','Finance','Quantitative Data Analysis','6 credit hours']);
-  addStaff(['Dr. Paul Mensah Agyei','Facilitator/Tutor','Koforidua','M','PhD Marketing','Senior Lecturer','Marketing','Research Methods','3 credit hours']);
+  addStaff(['Dr. Paul Mensah Agyei','Teaching Staff (HQ)','Koforidua','M','PhD Marketing','Senior Lecturer','Marketing','Research Methods in Economics','6 credit hours']);
+  addStaff(['Dr. Daisy Ofosuhene','Teaching Staff (HQ)','Cape Coast','M','PhD Human Resource Development, 2017, UCC','Senior Lecturer / 10 years','Human Resource Development','Quantitative Data Analysis','3 credit hours']);
+  addStaff(['Dr. (Mrs) Joana Eva Dodoo','Teaching Staff (HQ)','Online (Kumasi/Ho)','F','PhD Human Resource Development, 2019, UCC','Senior Lecturer / 10 years','Human Resource Development','Academic Writing / Organizational Development','3 credit hours']);
+  addStaff(['Dr. Moses Segbenya','Teaching Staff (HQ)','','F','PhD Human Resource Management, 2021, Universiti Sains Malaysia','Senior Lecturer / 10 years','Human Resource Management','Qualitative Data Analysis','3 credit hours']);
+  addStaff(['Mr. Sampson Achina','Teaching Staff (HQ)','Kumasi','M','PhD Accounting Education, UCC (Ongoing)','Lecturer','Accounting','Accounting and Finance for Managers','3 credit hours']);
+  addStaff(['Dr. Isaac Kwadwo Anim','Teaching Staff (HQ)','All Centres','M','PhD (Economics)/LLB','Lecturer','Law / Economics','Legal Environment of Business / Managerial Economics','6 credit hours']);
+  addStaff(['Prof. Abraham Ansong','Teaching Staff (HQ)','Kumasi','M','PhD Development Studies, 2015, UCC','Associate Professor / 10 years','Development Studies','Management Theory and Practice / Corporate Governance and Ethics','6 credit hours']);
+  addStaff(['Prof. Nicodemus Osei Owusu','Teaching Staff (HQ)','Kumasi','M','PhD Public Policy & Management, 2011, University of Southampton','Senior Lecturer / 10 years','Organizational Management / Health Policy','International Business Management / MIS','6 credit hours']);
+  addStaff(['Dr. Mrs. Joan-Ark Manu Agyapong','Facilitator/Tutor','Sunyani','F','PhD Management, 2022, South Africa','Lecturer / 3 years DL','Organisational Behaviour','Management Theory and Practice','3 credit hours']);
+  addStaff(['Dr. Mrs. Anastasia Nana Ama Kumi-Korsah','Facilitator/Tutor','Wa and Bolga','F','PhD Management Education, 2022, UCC','Teaching Associate / 1 year DL','Management Education','Advanced Organizational Behaviour','3 credit hours']);
+  addStaff(['Dr. Nick Fobih','Facilitator/Tutor','Tamale','M','PhD Policy Studies and Management, 2008, Queens University','Lecturer / 3 years DL','Human Resource Management / Public Policy','Management and Organizational Behaviour','3 credit hours']);
   updateEnrollTotals();
 
   // Check if already logged in (session persists)
